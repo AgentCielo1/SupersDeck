@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       id: `u-${payload.building_id.replace("bldg-", "")}-${u.label.toLowerCase()}`,
       building_id: payload.building_id,
       label: u.label.trim(),
-      line: u.line ?? u.label.replace(/[0-9]/g, "").trim() || null,
+      line: u.line ?? (u.label.replace(/[0-9]/g, "").trim() || null),
       floor:
         u.floor ??
         (parseInt(u.label.replace(/[^0-9]/g, ""), 10) || null),
