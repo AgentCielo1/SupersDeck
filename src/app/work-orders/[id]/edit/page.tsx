@@ -5,8 +5,11 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
-const PHOTO_BUCKET = "wo-photos";
 import type { WorkOrder } from "@/types";
+
+// Inline here (not imported from @/lib/storage) — that file uses next/headers
+// for server-only photo signing, which can't be imported by client components.
+const PHOTO_BUCKET = "wo-photos";
 
 const CATEGORIES = [
   "no-heat", "no-hot-water", "leak", "electrical", "appliance",
@@ -83,7 +86,7 @@ export default function EditWorkOrderPage() {
     const supabase = getBrowserSupabase();
     const paths = photos.filter((p) => !p.startsWith("data:") && !(p in photoUrls));
     if (paths.length === 0) return;
-    supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, 3600).then(({ data }) => {
+    supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, 3600).then(({ data }: { data: { signedUrl: string; path: string }[] | null }) => {
       if (!data) return;
       const update: Record<string, string> = {};
       data.forEach((d, i) => {
