@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
-import { PHOTO_BUCKET } from "@/lib/storage";
+const PHOTO_BUCKET = "wo-photos";
 import type { WorkOrder } from "@/types";
 
 const CATEGORIES = [
