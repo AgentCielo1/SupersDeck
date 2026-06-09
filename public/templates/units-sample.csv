@@ -1,0 +1,8 @@
+label,line,floor,bedrooms,bathrooms,occupied,tenant_name,tenant_phone,is_section8,has_children_under_6,has_children_under_11,notes
+1A,A,1,2,1,true,Maria Gonzalez,(347) 555-0101,true,true,true,Owner of small dog
+1B,B,1,2,1,true,James Wright,,false,false,false,
+1F,F,1,0,1,true,Singh residence,,false,false,false,Studio — F line
+2A,A,2,2,1,false,,,false,false,false,Vacant — repaint scheduled
+7C,C,7,3,1,true,Patel family,(917) 555-0199,true,false,true,
+8K,K,8,3,1,true,Brennan family,,false,false,true,
+11D,D,11,1,1,true,L. Chen,,false,false,false,
