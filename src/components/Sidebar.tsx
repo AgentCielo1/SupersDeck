@@ -15,6 +15,8 @@ const NAV: { href: string; label: string; icon: string }[] = [
   { href: "/vendors/directory", label: "Vendor directory", icon: "M3 7h18M3 12h18M3 17h18" },
   { href: "/heat-log", label: "Heat log", icon: "M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z" },
   { href: "/certifications", label: "Certifications", icon: "M9 12l2 2 4-4m-9 9a9 9 0 1118 0 9 9 0 01-18 0z" },
+  { href: "/leases", label: "Leases & CO", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+  { href: "/owner-report/preview", label: "Owner report", icon: "M9 17v-2a2 2 0 012-2h2a2 2 0 012 2v2m-6 0h6m-6 0H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-4" },
 ];
 
 // Admin-only nav items.

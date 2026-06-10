@@ -38,6 +38,11 @@ export interface Building {
   // owner-report cron skips this building.
   manager_name?: string;
   manager_email?: string;
+  // Certificate of Occupancy (DOB). co_expires_at is null for permanent
+  // COs and set only when operating on a Temporary CO that needs renewal.
+  co_number?: string;
+  co_issued_at?: string;
+  co_expires_at?: string;
 }
 
 export interface Unit {
@@ -55,6 +60,9 @@ export interface Unit {
   has_children_under_6: boolean;     // triggers LL1 lead paint
   has_children_under_11: boolean;    // triggers window guards
   lead_xrf_completed?: string;       // ISO date for LL31
+  lease_start?: string;              // ISO date
+  lease_end?: string;                // ISO date — renewal trigger
+  rent_status?: "stabilized" | "controlled" | "market" | "section8" | "pact";
   notes?: string;
 }
 

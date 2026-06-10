@@ -20,6 +20,9 @@ const ALLOWED_FIELDS = new Set([
   "has_children_under_6",
   "has_children_under_11",
   "lead_xrf_completed",
+  "lease_start",
+  "lease_end",
+  "rent_status",
   "notes",
 ]);
 
@@ -69,6 +72,7 @@ export async function PATCH(
   }
 
   revalidatePath("/lead-paint");
+  revalidatePath("/leases");
   revalidatePath("/buildings");
   revalidatePath("/", "layout");
 
