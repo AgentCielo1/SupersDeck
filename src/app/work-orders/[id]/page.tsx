@@ -19,9 +19,23 @@ async function fetchTimeline(workOrderId: string): Promise<TimelineEvent[]> {
     let tone: TimelineEvent["tone"] = "default";
     if (/complete|signed/i.test(r.message)) tone = "ok";
     else if (/status changed/i.test(r.message)) tone = "brand";
-    else if (/assigned/i.test(r.message)) tone = "warn";
+    else if (/assigned|vendor/i.test(r.message)) tone = "warn";
     return { ...r, tone };
   });
+}
+
+async function fetchAssignedVendor(vendorId: string | undefined) {
+  if (!vendorId) return null;
+  const supabase = createSupabaseServerClient();
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from("vendors")
+    .select("id, name, phone, email, license_type, license_number")
+    .eq("id", vendorId)
+    .maybeSingle();
+  return data as
+    | { id: string; name: string; phone: string | null; email: string | null; license_type: string | null; license_number: string | null }
+    | null;
 }
 
 export default async function WorkOrderDetailPage({
@@ -32,11 +46,12 @@ export default async function WorkOrderDetailPage({
   const wo = await db.workOrder(params.id);
   if (!wo) notFound();
 
-  const [building, units, photoUrls, timeline] = await Promise.all([
+  const [building, units, photoUrls, timeline, vendor] = await Promise.all([
     db.building(wo.building_id),
     wo.unit_id ? db.units() : Promise.resolve([]),
     resolvePhotoUrls(wo.photos ?? []),
     fetchTimeline(wo.id),
+    fetchAssignedVendor(wo.assigned_vendor_id),
   ]);
   const unit = wo.unit_id ? units.find((u) => u.id === wo.unit_id) : undefined;
 
@@ -151,9 +166,42 @@ export default async function WorkOrderDetailPage({
             value={`${wo.reporter_name}${wo.reporter_phone ? ` · ${wo.reporter_phone}` : ""}`}
           />
           <SideInfo
-            label="Assigned to"
-            value={wo.assigned_to ?? "Not assigned"}
+            label="Assigned to (staff)"
+            value={wo.assigned_to ?? "—"}
           />
+          {vendor ? (
+            <div className="rounded-xl2 border border-ink-200 bg-white px-4 py-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-ink-400">
+                Vendor
+              </div>
+              <div className="mt-0.5 text-sm font-semibold text-ink-900">
+                {vendor.name}
+              </div>
+              {vendor.phone && (
+                <a
+                  href={`tel:${vendor.phone}`}
+                  className="block text-xs text-brand-600 hover:underline"
+                >
+                  📞 {vendor.phone}
+                </a>
+              )}
+              {vendor.email && (
+                <a
+                  href={`mailto:${vendor.email}`}
+                  className="block text-xs text-brand-600 hover:underline"
+                >
+                  ✉ {vendor.email}
+                </a>
+              )}
+              {vendor.license_number && (
+                <div className="mt-1 text-xs text-ink-400">
+                  {vendor.license_type ?? "License"}: {vendor.license_number}
+                </div>
+              )}
+            </div>
+          ) : (
+            <SideInfo label="Vendor" value="—" />
+          )}
           {wo.due_at && (
             <SideInfo label="Due" value={new Date(wo.due_at).toLocaleDateString()} />
           )}

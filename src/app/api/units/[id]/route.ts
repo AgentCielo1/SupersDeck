@@ -3,34 +3,24 @@ import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 
 // =============================================================================
-//  PATCH /api/buildings/:id
+//  PATCH /api/units/:id  — edit a unit row
 // =============================================================================
-//  Updates one or more fields on a building. Used by the building-edit screen.
-//  Body: partial Building (only the fields being changed). Returns the new
-//  row on success.
+//  Used by the lead-paint XRF tracker (to set lead_xrf_completed) and the
+//  general unit-edit affordances. Whitelist matches the columns supers need
+//  to maintain after initial import (occupancy + tenant contact + kid flags
+//  change; structural fields like floor/line/bedrooms don't, so they aren't
+//  exposed here).
 // =============================================================================
 
 const ALLOWED_FIELDS = new Set([
-  "name",
-  "address",
-  "borough",
-  "year_built",
-  "num_units",
-  "num_floors",
-  "bin",
-  "bbl",
-  "hpd_id",
-  "community_district",
-  "has_section8",
-  "is_pact_rad",
-  "has_oil_heat",
-  "has_cooling_tower",
-  "has_sprinkler",
-  "has_known_lead",
-  "heat_notes",
-  "square_footage",
-  "manager_name",
-  "manager_email",
+  "occupied",
+  "tenant_name",
+  "tenant_phone",
+  "is_section8",
+  "has_children_under_6",
+  "has_children_under_11",
+  "lead_xrf_completed",
+  "notes",
 ]);
 
 export async function PATCH(
@@ -40,10 +30,7 @@ export async function PATCH(
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(
-      {
-        error:
-          "Supabase is not configured. Edits aren't persisted in seed-only mode.",
-      },
+      { error: "Supabase is not configured." },
       { status: 503 }
     );
   }
@@ -55,7 +42,6 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  // Whitelist allowed fields so the client can't smuggle in id/created_at.
   const update: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {
     if (ALLOWED_FIELDS.has(k)) update[k] = v === "" ? null : v;
@@ -69,7 +55,7 @@ export async function PATCH(
   }
 
   const { data, error } = await supabase
-    .from("buildings")
+    .from("units")
     .update(update)
     .eq("id", params.id)
     .select()
@@ -79,14 +65,12 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (!data) {
-    return NextResponse.json({ error: "Building not found" }, { status: 404 });
+    return NextResponse.json({ error: "Unit not found" }, { status: 404 });
   }
 
-  // Bust Next.js's router cache so the dashboard, buildings list, and edit
-  // form re-fetch fresh data on the next render.
-  revalidatePath("/", "layout");
+  revalidatePath("/lead-paint");
   revalidatePath("/buildings");
-  revalidatePath(`/buildings/${params.id}/edit`);
+  revalidatePath("/", "layout");
 
   return NextResponse.json(data);
 }

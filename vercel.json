@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/violations-alert",
       "schedule": "15 7 * * *"
+    },
+    {
+      "path": "/api/cron/owner-report",
+      "schedule": "0 9 1 * *"
     }
   ]
 }

@@ -194,6 +194,36 @@ export default function BuildingEditForm({ building }: { building: Building }) {
         </Field>
       </section>
 
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-ink-900">
+          Management contact
+        </h2>
+        <p className="mb-3 text-xs text-ink-400">
+          The monthly owner report is emailed here on the 1st of every month —
+          WO summary, overdue compliance, new HPD violations. Leave email
+          blank to skip this building.
+        </p>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <Field label="Manager name">
+            <input
+              value={b.manager_name ?? ""}
+              onChange={(e) => set("manager_name", e.target.value)}
+              placeholder="e.g. Lisa Park"
+              className={input}
+            />
+          </Field>
+          <Field label="Manager email">
+            <input
+              type="email"
+              value={b.manager_email ?? ""}
+              onChange={(e) => set("manager_email", e.target.value)}
+              placeholder="e.g. lisa@yourmgmt.com"
+              className={input}
+            />
+          </Field>
+        </div>
+      </section>
+
       {error && (
         <div className="rounded-md border border-danger-600/40 bg-danger-50 px-3 py-2 text-sm text-danger-800">
           {error}
