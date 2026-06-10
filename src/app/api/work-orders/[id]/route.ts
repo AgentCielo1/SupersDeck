@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { Resend } from "resend";
 import { getServerSupabase } from "@/lib/supabase";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
+import { resolvePhotoUrls } from "@/lib/storage";
 
 // =============================================================================
 //  PATCH /api/work-orders/:id  — edit a work order
@@ -161,20 +163,91 @@ export async function PATCH(
     "assigned_vendor_id" in update &&
     update.assigned_vendor_id !== before.assigned_vendor_id
   ) {
-    let vendorLabel = "no vendor";
-    if (update.assigned_vendor_id) {
+    const newVendorId = update.assigned_vendor_id;
+    let vendor: {
+      name: string;
+      email: string | null;
+      phone: string | null;
+    } | null = null;
+    if (newVendorId) {
       const { data: v } = await supabase
         .from("vendors")
-        .select("name")
-        .eq("id", String(update.assigned_vendor_id))
+        .select("name, email, phone")
+        .eq("id", String(newVendorId))
         .maybeSingle();
-      vendorLabel = v?.name ?? String(update.assigned_vendor_id);
+      vendor = (v as any) ?? null;
     }
+    const vendorLabel = vendor?.name ?? (newVendorId ? String(newVendorId) : "no vendor");
     updates.push({
       work_order_id: params.id,
       message: `Vendor: ${vendorLabel}`,
       author,
     });
+
+    // Notify vendor by email if we have one + Resend configured. Failure
+    // is non-fatal — the assignment still saves, the timeline shows the
+    // attempt, and the super can manually call the vendor.
+    if (vendor?.email && process.env.RESEND_API_KEY && newVendorId) {
+      try {
+        const [{ data: bldg }, unitData] = await Promise.all([
+          supabase
+            .from("buildings")
+            .select("name, address")
+            .eq("id", data.building_id)
+            .maybeSingle(),
+          data.unit_id
+            ? supabase
+                .from("units")
+                .select("label")
+                .eq("id", data.unit_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null as { label: string } | null }),
+        ]);
+        const buildingLabel = bldg
+          ? `${bldg.name} (${bldg.address})`
+          : data.building_id;
+        const unitLabel = unitData.data?.label ?? "Common area";
+        const photoUrls = await resolvePhotoUrls(
+          Array.isArray(data.photos) ? data.photos : []
+        );
+
+        const fromEmail =
+          process.env.RESEND_FROM_EMAIL ||
+          "SupersDeck <onboarding@resend.dev>";
+        const replyTo = me?.email ?? undefined;
+        const subject = `[${data.priority.toUpperCase()}] ${data.ticket_number}: ${data.title}`;
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: fromEmail,
+          to: [vendor.email],
+          replyTo,
+          subject,
+          html: renderVendorEmail({
+            wo: data,
+            vendor,
+            buildingLabel,
+            unitLabel,
+            photoUrls,
+            superName: me?.full_name ?? me?.email ?? "Your super",
+          }),
+        });
+        updates.push({
+          work_order_id: params.id,
+          message: `Email sent to ${vendor.email}`,
+          author: "system",
+        });
+      } catch (e) {
+        console.error("[work-orders] vendor email failed:", e);
+        updates.push({
+          work_order_id: params.id,
+          message: `Vendor email failed (${
+            e instanceof Error ? e.message : "unknown"
+          }) — please call ${vendor.phone ?? vendor.email}`,
+          author: "system",
+        });
+      }
+    }
   }
   if (updates.length > 0) {
     const rows = updates.map((u, i) => ({
@@ -197,4 +270,85 @@ export async function PATCH(
   revalidatePath("/", "layout");
 
   return NextResponse.json(data);
+}
+
+// =============================================================================
+//  Email — assignment notification to vendor
+// =============================================================================
+function renderVendorEmail(input: {
+  wo: any;
+  vendor: { name: string; email: string | null; phone: string | null };
+  buildingLabel: string;
+  unitLabel: string;
+  photoUrls: string[];
+  superName: string;
+}): string {
+  const { wo, vendor, buildingLabel, unitLabel, photoUrls, superName } = input;
+  const priorityColor =
+    wo.priority === "emergency"
+      ? "#791F1F"
+      : wo.priority === "high"
+      ? "#633806"
+      : "#444";
+  const photoBlock =
+    photoUrls.length === 0
+      ? ""
+      : `<div style="margin-top:12px">
+           <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px">Photos (${photoUrls.length})</div>
+           <div>${photoUrls
+             .map(
+               (u) =>
+                 `<a href="${u}" style="display:inline-block;margin-right:6px"><img src="${u}" alt="Photo" style="height:120px;border:1px solid #eee;border-radius:6px"></a>`
+             )
+             .join("")}</div>
+           <div style="font-size:11px;color:#888;margin-top:4px">Photo links expire in 1 hour.</div>
+         </div>`;
+
+  return `<!doctype html>
+<html><body style="font-family:-apple-system,Segoe UI,Inter,sans-serif;color:#1a1a18;background:#f7f7f6;margin:0;padding:24px">
+  <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:24px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <div style="width:32px;height:32px;border-radius:6px;background:#1a3a8c;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600">S</div>
+      <strong>SupersDeck · Work order assignment</strong>
+    </div>
+
+    <p style="margin:0 0 16px 0">Hi ${vendor.name.split(" ")[0]},</p>
+    <p style="margin:0 0 16px 0;color:#444">
+      ${superName} assigned you a work order. Details below.
+      Please reply to this email or call to coordinate scheduling.
+    </p>
+
+    <table style="width:100%;border-collapse:collapse;border:1px solid #eee;border-radius:8px;overflow:hidden">
+      <tbody>
+        <tr><td style="padding:8px 12px;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.04em;background:#f7f7f6;width:120px">Ticket</td>
+            <td style="padding:8px 12px;font-family:ui-monospace,Menlo,monospace;font-size:13px">${wo.ticket_number}</td></tr>
+        <tr><td style="padding:8px 12px;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.04em;background:#f7f7f6">Priority</td>
+            <td style="padding:8px 12px;font-size:13px;color:${priorityColor};font-weight:${
+              wo.priority === "emergency" ? 700 : 500
+            }">${String(wo.priority).toUpperCase()}</td></tr>
+        <tr><td style="padding:8px 12px;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.04em;background:#f7f7f6">Category</td>
+            <td style="padding:8px 12px;font-size:13px">${String(wo.category).replace(/-/g, " ")}</td></tr>
+        <tr><td style="padding:8px 12px;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.04em;background:#f7f7f6">Building</td>
+            <td style="padding:8px 12px;font-size:13px">${buildingLabel}</td></tr>
+        <tr><td style="padding:8px 12px;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.04em;background:#f7f7f6">Unit</td>
+            <td style="padding:8px 12px;font-size:13px">${unitLabel}</td></tr>
+        <tr><td style="padding:8px 12px;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.04em;background:#f7f7f6">Reporter</td>
+            <td style="padding:8px 12px;font-size:13px">${wo.reporter_name}${
+              wo.reporter_phone ? ` · ${wo.reporter_phone}` : ""
+            }</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin:20px 0 6px;font-size:14px">${wo.title}</h3>
+    <p style="margin:0;color:#444;font-size:13px;white-space:pre-wrap">${
+      wo.description ?? "(no description)"
+    }</p>
+
+    ${photoBlock}
+
+    <p style="margin-top:24px;color:#666;font-size:12px">
+      Sent on behalf of ${superName}. Reply to this email to coordinate.
+    </p>
+  </div>
+</body></html>`;
 }

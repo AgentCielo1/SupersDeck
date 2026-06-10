@@ -196,6 +196,43 @@ export default function BuildingEditForm({ building }: { building: Building }) {
 
       <section>
         <h2 className="mb-3 text-sm font-semibold text-ink-900">
+          Certificate of Occupancy
+        </h2>
+        <p className="mb-3 text-xs text-ink-400">
+          Leave the expiration blank if you have a permanent CO. Only fill
+          it in if you're operating on a Temporary CO (TCO) that needs
+          renewal.
+        </p>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <Field label="CO number">
+            <input
+              value={b.co_number ?? ""}
+              onChange={(e) => set("co_number", e.target.value)}
+              placeholder="e.g. 340065392"
+              className={input}
+            />
+          </Field>
+          <Field label="CO issued">
+            <input
+              type="date"
+              value={b.co_issued_at ?? ""}
+              onChange={(e) => set("co_issued_at", e.target.value)}
+              className={input}
+            />
+          </Field>
+          <Field label="TCO expires (if any)">
+            <input
+              type="date"
+              value={b.co_expires_at ?? ""}
+              onChange={(e) => set("co_expires_at", e.target.value)}
+              className={input}
+            />
+          </Field>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-ink-900">
           Management contact
         </h2>
         <p className="mb-3 text-xs text-ink-400">

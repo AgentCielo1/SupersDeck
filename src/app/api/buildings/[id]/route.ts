@@ -31,6 +31,9 @@ const ALLOWED_FIELDS = new Set([
   "square_footage",
   "manager_name",
   "manager_email",
+  "co_number",
+  "co_issued_at",
+  "co_expires_at",
 ]);
 
 export async function PATCH(

@@ -29,6 +29,8 @@ const MORE = [
   { href: "/lead-paint", label: "Lead paint (LL31)", icon: "M12 2L2 22h20L12 2zm0 6l6.5 11h-13L12 8z" },
   { href: "/violations", label: "HPD violations", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
   { href: "/heat-log", label: "Heat log", icon: "M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z" },
+  { href: "/leases", label: "Leases & CO", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+  { href: "/owner-report/preview", label: "Owner report", icon: "M9 17v-2a2 2 0 012-2h2a2 2 0 012 2v2m-6 0h6m-6 0H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-4" },
   { href: "/vendors", label: "My vendors", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
   { href: "/vendors/directory", label: "Vendor directory", icon: "M3 7h18M3 12h18M3 17h18" },
   { href: "/certifications", label: "Certifications", icon: "M9 12l2 2 4-4m-9 9a9 9 0 1118 0 9 9 0 01-18 0z" },
