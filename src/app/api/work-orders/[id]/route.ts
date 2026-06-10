@@ -15,6 +15,7 @@ const ALLOWED_FIELDS = new Set([
   "priority",
   "status",
   "assigned_to",
+  "assigned_vendor_id",
   "due_at",
   "internal_notes",
   "hpd_risk",
@@ -117,7 +118,7 @@ export async function PATCH(
   // entry on status / assignee changes.
   const { data: before } = await supabase
     .from("work_orders")
-    .select("status, assigned_to")
+    .select("status, assigned_to, assigned_vendor_id")
     .eq("id", params.id)
     .maybeSingle();
 
@@ -152,6 +153,26 @@ export async function PATCH(
     updates.push({
       work_order_id: params.id,
       message: `Assigned to ${to}`,
+      author,
+    });
+  }
+  if (
+    before &&
+    "assigned_vendor_id" in update &&
+    update.assigned_vendor_id !== before.assigned_vendor_id
+  ) {
+    let vendorLabel = "no vendor";
+    if (update.assigned_vendor_id) {
+      const { data: v } = await supabase
+        .from("vendors")
+        .select("name")
+        .eq("id", String(update.assigned_vendor_id))
+        .maybeSingle();
+      vendorLabel = v?.name ?? String(update.assigned_vendor_id);
+    }
+    updates.push({
+      work_order_id: params.id,
+      message: `Vendor: ${vendorLabel}`,
       author,
     });
   }

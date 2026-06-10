@@ -3,10 +3,33 @@ import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 
 // =============================================================================
+//  GET  /api/vendors  — list "my vendors" (used by the WO edit dropdown)
 //  POST /api/vendors  — add a vendor to My Vendors
 // =============================================================================
-//  Body: Vendor-shaped object (id is generated server-side from name).
+//  GET returns only in_my_vendors=true rows because that's the realistic
+//  pool a super would actually assign work to (not the full discovery
+//  directory). Ordered by name.
+//
+//  POST body: Vendor-shaped object (id is generated server-side from name).
 // =============================================================================
+
+export async function GET() {
+  const supabase = getServerSupabase();
+  if (!supabase) {
+    // Seed-only mode: respond with empty list so the dropdown renders without
+    // crashing. Real vendor assignment only matters with a live DB anyway.
+    return NextResponse.json([]);
+  }
+  const { data, error } = await supabase
+    .from("vendors")
+    .select("id, name, category_id, phone, email")
+    .eq("in_my_vendors", true)
+    .order("name");
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json(data ?? []);
+}
 
 function slug(s: string): string {
   return s

@@ -38,6 +38,10 @@ export default function EditWorkOrderPage() {
   const [priority, setPriority] = useState<string>("normal");
   const [status, setStatus] = useState<string>("new");
   const [assignedTo, setAssignedTo] = useState("");
+  const [assignedVendorId, setAssignedVendorId] = useState<string>("");
+  const [vendorOptions, setVendorOptions] = useState<
+    Array<{ id: string; name: string; phone: string | null }>
+  >([]);
   const [internalNotes, setInternalNotes] = useState("");
   const [hpdRisk, setHpdRisk] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -65,6 +69,7 @@ export default function EditWorkOrderPage() {
         setPriority(w.priority ?? "normal");
         setStatus(w.status ?? "new");
         setAssignedTo(w.assigned_to ?? "");
+        setAssignedVendorId(w.assigned_vendor_id ?? "");
         setInternalNotes(w.internal_notes ?? "");
         setHpdRisk(Boolean(w.hpd_risk));
         setPhotos(Array.isArray(w.photos) ? w.photos : []);
@@ -75,6 +80,19 @@ export default function EditWorkOrderPage() {
     if (id) load();
     return () => { cancelled = true; };
   }, [id]);
+
+  // Vendor dropdown options — fetched once on mount. Falls back to empty if
+  // the user has no vendors on file yet (dropdown still renders, just blank).
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/vendors")
+      .then((r) => r.ok ? r.json() : [])
+      .then((rows: Array<{ id: string; name: string; phone: string | null }>) => {
+        if (!cancelled && Array.isArray(rows)) setVendorOptions(rows);
+      })
+      .catch(() => { /* ok — leave empty */ });
+    return () => { cancelled = true; };
+  }, []);
 
   // Track signed URLs for already-uploaded photos so we can render thumbnails.
   // Keyed by the photos[] entry (data URL or storage path).
@@ -147,6 +165,7 @@ export default function EditWorkOrderPage() {
         priority,
         status,
         assigned_to: assignedTo.trim() || null,
+        assigned_vendor_id: assignedVendorId || null,
         internal_notes: internalNotes.trim() || null,
         hpd_risk: hpdRisk,
         photos,
@@ -225,9 +244,30 @@ export default function EditWorkOrderPage() {
             </select>
           </Field>
         </div>
-        <Field label="Assigned to">
-          <input value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} placeholder="e.g. Hector (porter)" className={input} />
-        </Field>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <Field label="Assigned to (internal staff)">
+            <input
+              value={assignedTo}
+              onChange={(e) => setAssignedTo(e.target.value)}
+              placeholder="e.g. Hector (porter)"
+              className={input}
+            />
+          </Field>
+          <Field label="Vendor (from My Vendors)">
+            <select
+              value={assignedVendorId}
+              onChange={(e) => setAssignedVendorId(e.target.value)}
+              className={input}
+            >
+              <option value="">— No vendor —</option>
+              {vendorOptions.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}{v.phone ? ` · ${v.phone}` : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
         <Field label="Internal notes (super-only)">
           <textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} rows={2} className={input} />
         </Field>

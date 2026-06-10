@@ -34,6 +34,10 @@ export interface Building {
   // Free-text context for the heat system — e.g. "Temporary oil during
   // steam-leak repair, expected gas-back by Apr 15". Shows in building card.
   heat_notes?: string;
+  // Management-company contact for the monthly owner report. If null, the
+  // owner-report cron skips this building.
+  manager_name?: string;
+  manager_email?: string;
 }
 
 export interface Unit {
@@ -199,7 +203,8 @@ export interface WorkOrder {
   reporter_email?: string;
   reported_at: string;
   due_at?: string;
-  assigned_to?: string;             // "Hector (porter)", vendor name, etc.
+  assigned_to?: string;             // "Hector (porter)", free-text internal staff
+  assigned_vendor_id?: ID;          // FK to vendors.id when assigned to a vendor on file
   resolved_at?: string;
   photos: string[];
   internal_notes?: string;
