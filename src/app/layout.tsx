@@ -35,7 +35,7 @@ export default async function RootLayout({
       <body className="min-h-screen bg-ink-50 pb-16 text-ink-900 md:pb-0">
         <AppShell user={user}>{children}</AppShell>
         <Sidebar user={user} />
-        <MobileNav signedIn={Boolean(user)} />
+        <MobileNav signedIn={Boolean(user)} isAdmin={user?.role === "admin"} />
         <InstallPrompt />
       </body>
     </html>
