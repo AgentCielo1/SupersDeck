@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import QRCode from "qrcode";
-import { SAMPLE_BUILDINGS } from "@/data/sample-data";
 
 // =============================================================================
 //  Printable QR-code lobby poster
@@ -13,15 +12,16 @@ import { SAMPLE_BUILDINGS } from "@/data/sample-data";
 //  encodes /intake/<building-id> so tenants land in the work-order intake
 //  flow. `window.print()` produces a clean PDF on macOS / Windows / mobile.
 //
-//  Phase 1 reads the building from the bundled seed for instant rendering.
-//  Phase 2 will swap to db.building(id) once auth + building edit screens
-//  are in.
+//  Building lookup uses the live DB via GET /api/buildings/:id so the
+//  poster's title matches whatever the building is actually called now —
+//  not whatever the seed shipped with.
 // =============================================================================
 
 export default function PosterPage() {
   const params = useParams<{ id: string }>();
   const buildingId = params?.id ?? "";
-  const building = SAMPLE_BUILDINGS.find((b) => b.id === buildingId);
+  const [building, setBuilding] = useState<{ id: string; name: string; address: string } | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [qrSrc, setQrSrc] = useState<string>("");
   const [origin, setOrigin] = useState<string>("");
   const [superName, setSuperName] = useState("");
@@ -35,6 +35,25 @@ export default function PosterPage() {
   }, []);
 
   useEffect(() => {
+    if (!buildingId) return;
+    let cancelled = false;
+    fetch(`/api/buildings/${buildingId}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error("not found");
+        return r.json();
+      })
+      .then((b) => {
+        if (!cancelled) setBuilding(b);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [buildingId]);
+
+  useEffect(() => {
     if (!origin || !buildingId) return;
     const url = `${origin}/intake/${buildingId}`;
     QRCode.toDataURL(url, {
@@ -46,7 +65,7 @@ export default function PosterPage() {
       .catch(() => setQrSrc(""));
   }, [origin, buildingId]);
 
-  if (!building) {
+  if (loadError) {
     return (
       <div className="p-8 text-center text-sm text-ink-400">
         Unknown building.{" "}
@@ -54,6 +73,12 @@ export default function PosterPage() {
           Back
         </Link>
       </div>
+    );
+  }
+
+  if (!building) {
+    return (
+      <div className="p-8 text-center text-sm text-ink-400">Loading…</div>
     );
   }
 
