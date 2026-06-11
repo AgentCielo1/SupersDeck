@@ -2,17 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import QRCode from "qrcode";
 
 // =============================================================================
 //  PUBLIC tenant intake page — reachable via QR code in each lobby.
 //  URL: /intake/<building-id>
 // =============================================================================
-//  No auth, no nav. One job: capture the report + phone number, then say
-//  thanks. POSTs to /api/work-orders which writes to Supabase. The POST API
-//  emails the admins so the super gets notified instantly.
-//
-//  Building lookup uses the live DB (GET /api/buildings/:id) so the form
-//  shows the real building name + any custom buildings added via the UI.
+//  No auth, no nav. After submit:
+//    • Shows a QR code that links to /track/<ticket> so tenants can save it
+//      to camera roll / share with a roommate / etc.
+//    • Shows the tracking URL in big text + a copy button.
+//    • If the tenant provided an email, the server emails them the same
+//      link — see /api/work-orders POST.
 // =============================================================================
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -78,42 +79,7 @@ export default function TenantIntakePage() {
   }
 
   if (ticket) {
-    return (
-      <div className="mx-auto max-w-md p-8 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-ok-50 text-ok-800">
-          <svg
-            className="h-7 w-7"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M5 12l5 5L20 7" />
-          </svg>
-        </div>
-        <h1 className="mt-4 text-lg font-semibold">Got it — thanks.</h1>
-        <p className="mt-2 text-sm text-ink-600">
-          Your super has the report. Your ticket number is{" "}
-          <span className="font-mono font-semibold text-ink-900">
-            {ticket.ticket_number}
-          </span>
-          .
-        </p>
-        <a
-          href={`/track/${ticket.ticket_number}`}
-          className="mt-4 inline-block rounded-md bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800"
-        >
-          Track this ticket →
-        </a>
-        <p className="mt-4 text-xs text-ink-400">
-          Bookmark that page on your phone to check progress anytime — no
-          login needed. If this is an emergency (no heat, leak, fire, gas
-          smell), please also call 311 or 911.
-        </p>
-      </div>
-    );
+    return <ConfirmationView ticket={ticket} />;
   }
 
   return (
@@ -137,9 +103,8 @@ export default function TenantIntakePage() {
           const fd = new FormData(e.currentTarget);
           const body = Object.fromEntries(fd.entries()) as Record<string, string>;
 
-          // Derive a title from category + unit. The API requires `title` but
-          // the tenant form intentionally doesn't ask for it — we craft one
-          // ("No heat — Apt 7C") that's good enough to scan in a list.
+          // Derive title from category + unit (the form intentionally doesn't
+          // ask for one). Server has the same fallback as a safety net.
           const categoryLabel =
             CATEGORY_LABELS[body.category ?? "other"] ?? "Repair request";
           const titlePieces = [categoryLabel];
@@ -179,6 +144,14 @@ export default function TenantIntakePage() {
             name="reporter_phone"
             type="tel"
             inputMode="tel"
+            className={fieldClass}
+          />
+        </Field>
+        <Field label="Email (optional — we'll send your tracking link)">
+          <input
+            name="reporter_email"
+            type="email"
+            inputMode="email"
             className={fieldClass}
           />
         </Field>
@@ -224,6 +197,100 @@ export default function TenantIntakePage() {
           Emergency (no heat, leak, gas, fire, lockout)? Call 311 or 911.
         </p>
       </form>
+    </div>
+  );
+}
+
+// =============================================================================
+//  Confirmation view (after submit)
+// =============================================================================
+function ConfirmationView({
+  ticket,
+}: {
+  ticket: { ticket_number: string };
+}) {
+  const [qrSrc, setQrSrc] = useState<string>("");
+  const [copied, setCopied] = useState(false);
+  const trackUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/track/${ticket.ticket_number}`
+      : `/track/${ticket.ticket_number}`;
+
+  useEffect(() => {
+    QRCode.toDataURL(trackUrl, { width: 480, margin: 1, errorCorrectionLevel: "M" })
+      .then(setQrSrc)
+      .catch(() => setQrSrc(""));
+  }, [trackUrl]);
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(trackUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore — copy isn't available everywhere
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-md p-6 text-center">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-ok-50 text-ok-800">
+        <svg
+          className="h-7 w-7"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M5 12l5 5L20 7" />
+        </svg>
+      </div>
+      <h1 className="mt-4 text-lg font-semibold">Got it — thanks.</h1>
+      <p className="mt-2 text-sm text-ink-600">
+        Your super has the report. Save this so you can check status anytime —
+        no login needed.
+      </p>
+
+      <div className="mt-3 inline-block rounded-md border border-ink-200 bg-white px-3 py-1.5 font-mono text-base font-semibold">
+        {ticket.ticket_number}
+      </div>
+
+      {qrSrc && (
+        <div className="mt-4 flex flex-col items-center">
+          <img
+            src={qrSrc}
+            alt={`QR code for ${trackUrl}`}
+            className="h-48 w-48 rounded-md border border-ink-200"
+          />
+          <p className="mt-2 text-xs text-ink-400">
+            Save this QR (long-press → Save Image) or copy the link below.
+            Reopen anytime to see status updates.
+          </p>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <a
+          href={`/track/${ticket.ticket_number}`}
+          className="block w-full rounded-md bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-800"
+        >
+          Track this ticket →
+        </a>
+        <button
+          type="button"
+          onClick={copyLink}
+          className="mt-2 block w-full rounded-md border border-ink-200 bg-white px-4 py-3 text-sm font-medium text-ink-600 hover:bg-ink-100"
+        >
+          {copied ? "Copied!" : "Copy tracking link"}
+        </button>
+      </div>
+
+      <p className="mt-4 text-xs text-ink-400">
+        If this is an emergency (no heat, leak, fire, gas smell, lockout),
+        please also call 311 or 911.
+      </p>
     </div>
   );
 }

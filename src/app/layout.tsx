@@ -4,6 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
 import InstallPrompt from "@/components/InstallPrompt";
 import AppShell from "@/components/AppShell";
+import PushManagerClient from "@/components/PushManagerClient";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
 
 export const metadata: Metadata = {
@@ -37,6 +38,7 @@ export default async function RootLayout({
         <Sidebar user={user} />
         <MobileNav signedIn={Boolean(user)} isAdmin={user?.role === "admin"} />
         <InstallPrompt />
+        <PushManagerClient signedIn={Boolean(user)} />
       </body>
     </html>
   );

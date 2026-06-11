@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import { getServerSupabase } from "@/lib/supabase";
+import { pushToAdminsAndSupers } from "@/lib/push";
 
 // =============================================================================
 //  POST /api/work-orders — create a work order
@@ -161,15 +162,93 @@ export async function POST(request: Request) {
     author: row.reporter_name,
   });
 
-  // Notify admins + supers (fire and forget — failures don't fail the WO).
-  await notifyAdmins(supabase, data, bldg).catch((e) =>
-    console.error("[work-orders] notify admins failed:", e)
-  );
+  // Notify admins + supers via email AND push. Fire and forget — failures
+  // never fail the WO.
+  await Promise.all([
+    notifyAdmins(supabase, data, bldg).catch((e) =>
+      console.error("[work-orders] notify admins (email) failed:", e)
+    ),
+    pushToAdminsAndSupers({
+      title: `${
+        data.priority === "emergency"
+          ? "🚨 "
+          : data.priority === "high"
+          ? "⚠ "
+          : ""
+      }New WO at ${bldg.name}`,
+      body: `${data.title}${
+        data.reporter_name ? ` — from ${data.reporter_name}` : ""
+      }`,
+      url: `/work-orders/${data.id}`,
+      tag: `wo-${data.id}`,
+      priority: data.priority,
+    }).catch((e) => console.error("[work-orders] push notify failed:", e)),
+    sendTenantConfirmation(data, bldg).catch((e) =>
+      console.error("[work-orders] tenant email failed:", e)
+    ),
+  ]);
 
   revalidatePath("/work-orders");
   revalidatePath("/", "layout");
 
   return NextResponse.json(data, { status: 201 });
+}
+
+// =============================================================================
+//  Tenant confirmation — sent only if reporter_email was provided
+// =============================================================================
+async function sendTenantConfirmation(
+  wo: any,
+  building: { name: string; address: string }
+) {
+  if (!wo.reporter_email || !process.env.RESEND_API_KEY) return;
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`) ||
+    "";
+  const trackUrl = baseUrl
+    ? `${baseUrl}/track/${wo.ticket_number}`
+    : `/track/${wo.ticket_number}`;
+
+  const html = `<!doctype html>
+<html><body style="font-family:-apple-system,Segoe UI,Inter,sans-serif;color:#1a1a18;background:#f7f7f6;margin:0;padding:24px">
+  <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:24px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <div style="width:32px;height:32px;border-radius:6px;background:#1a3a8c;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600">S</div>
+      <strong>SupersDeck</strong>
+    </div>
+
+    <p style="margin:0 0 12px 0">Hi ${wo.reporter_name.split(" ")[0]},</p>
+    <p style="margin:0 0 16px 0;color:#444">
+      Your work order at <b>${building.name}</b> was received. Your super
+      will be in touch.
+    </p>
+
+    <div style="border:1px solid #eee;border-radius:8px;padding:12px;background:#f9f9f9;margin-bottom:16px">
+      <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.04em">Ticket number</div>
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:600;margin-top:4px">${wo.ticket_number}</div>
+    </div>
+
+    <p style="margin:0 0 16px 0">
+      <a href="${trackUrl}" style="display:inline-block;background:#1a3a8c;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;font-weight:500">
+        Track this ticket
+      </a>
+    </p>
+
+    <p style="color:#666;font-size:12px;margin:16px 0 0 0">
+      Bookmark the link above — no login needed. If this is an emergency
+      (no heat, leak, fire, gas smell, lockout), please call 311 or 911.
+    </p>
+  </div>
+</body></html>`;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL || "SupersDeck <onboarding@resend.dev>",
+    to: [wo.reporter_email],
+    subject: `Work order received: ${wo.ticket_number}`,
+    html,
+  });
 }
 
 // =============================================================================

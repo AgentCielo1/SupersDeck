@@ -87,6 +87,13 @@ export default async function WorkOrderDetailPage({
             >
               ✎ Edit
             </Link>
+            <Link
+              href={`/work-orders/${wo.id}/print`}
+              className="rounded-md border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
+              target="_blank"
+            >
+              🖨 Print
+            </Link>
             {wo.status !== "completed" && wo.status !== "cancelled" && (
               <Link
                 href={`/work-orders/${wo.id}/complete`}
