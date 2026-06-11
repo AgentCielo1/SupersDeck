@@ -195,6 +195,23 @@ export default function BuildingEditForm({ building }: { building: Building }) {
       </section>
 
       <section>
+        <h2 className="mb-3 text-sm font-semibold text-ink-900">Print header</h2>
+        <p className="mb-3 text-xs text-ink-400">
+          Prints at the top of every work-order PDF for this building. Use
+          your management entity name (e.g. <em>FOREST HILLS MHA HDFC</em> or{" "}
+          <em>FOREST HILLS MHA HSG DEV</em>).
+        </p>
+        <Field label="Legal entity">
+          <input
+            value={b.legal_entity ?? ""}
+            onChange={(e) => set("legal_entity", e.target.value)}
+            placeholder="FOREST HILLS MHA HDFC"
+            className={input}
+          />
+        </Field>
+      </section>
+
+      <section>
         <h2 className="mb-3 text-sm font-semibold text-ink-900">
           Certificate of Occupancy
         </h2>

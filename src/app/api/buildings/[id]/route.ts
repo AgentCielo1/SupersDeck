@@ -59,6 +59,7 @@ const ALLOWED_FIELDS = new Set([
   "co_number",
   "co_issued_at",
   "co_expires_at",
+  "legal_entity",
 ]);
 
 export async function PATCH(

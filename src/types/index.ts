@@ -43,6 +43,9 @@ export interface Building {
   co_number?: string;
   co_issued_at?: string;
   co_expires_at?: string;
+  // Legal entity that prints on the work-order form header (e.g.
+  // "FOREST HILLS MHA HDFC" / "FOREST HILLS MHA HSG DEV").
+  legal_entity?: string;
 }
 
 export interface Unit {
