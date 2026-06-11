@@ -3,12 +3,37 @@ import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 
 // =============================================================================
-//  PATCH /api/buildings/:id
+//  GET   /api/buildings/:id  — fetch one building (used by /intake and the
+//                              QR poster, which need to render the building's
+//                              name without dragging a server-component
+//                              fetch into a client page)
+//  PATCH /api/buildings/:id  — partial update from the building-edit form
 // =============================================================================
-//  Updates one or more fields on a building. Used by the building-edit screen.
-//  Body: partial Building (only the fields being changed). Returns the new
-//  row on success.
+//  GET is public so the tenant intake page (anonymous) can load the name.
+//  Only safe-to-show columns are returned (no manager email / CO / financial
+//  fields — those stay private).
 // =============================================================================
+
+export async function GET(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  const supabase = getServerSupabase();
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Supabase is not configured." },
+      { status: 503 }
+    );
+  }
+  const { data, error } = await supabase
+    .from("buildings")
+    .select("id, name, address, borough, num_units, num_floors, year_built")
+    .eq("id", params.id)
+    .maybeSingle();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(data);
+}
 
 const ALLOWED_FIELDS = new Set([
   "name",

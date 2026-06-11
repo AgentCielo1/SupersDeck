@@ -1,32 +1,78 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { SAMPLE_BUILDINGS } from "@/data/sample-data";
 
 // =============================================================================
 //  PUBLIC tenant intake page — reachable via QR code in each lobby.
 //  URL: /intake/<building-id>
 // =============================================================================
-//  No auth, no nav. One job: capture the report and a phone number, then say
-//  thanks. Phase 1 logs to console; phase 2 POSTs to /api/intake which writes
-//  to Supabase + sends an SMS to the super.
+//  No auth, no nav. One job: capture the report + phone number, then say
+//  thanks. POSTs to /api/work-orders which writes to Supabase. The POST API
+//  emails the admins so the super gets notified instantly.
+//
+//  Building lookup uses the live DB (GET /api/buildings/:id) so the form
+//  shows the real building name + any custom buildings added via the UI.
 // =============================================================================
+
+const CATEGORY_LABELS: Record<string, string> = {
+  "no-heat": "No heat",
+  "no-hot-water": "No hot water",
+  leak: "Leak",
+  electrical: "Electrical issue",
+  appliance: "Broken appliance",
+  "lock-key": "Lock / key issue",
+  pest: "Pest",
+  mold: "Mold",
+  elevator: "Elevator",
+  intercom: "Intercom",
+  "common-area": "Common area issue",
+  other: "Repair request",
+};
 
 export default function TenantIntakePage() {
   const params = useParams<{ buildingCode: string }>();
-  const building = SAMPLE_BUILDINGS.find((b) => b.id === params?.buildingCode);
+  const buildingId = params?.buildingCode ?? "";
+  const [building, setBuilding] = useState<{ id: string; name: string; address: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [ticket, setTicket] = useState<{ ticket_number: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (!building) {
+  useEffect(() => {
+    if (!buildingId) return;
+    let cancelled = false;
+    fetch(`/api/buildings/${buildingId}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((b) => {
+        if (!cancelled) setBuilding(b);
+      })
+      .catch((e) => {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : "Failed to load");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [buildingId]);
+
+  if (loadError) {
     return (
       <div className="mx-auto max-w-md p-8 text-center">
         <h1 className="text-lg font-semibold">Invalid building code</h1>
         <p className="mt-2 text-sm text-ink-400">
           Check the QR code in the lobby or ask your super.
         </p>
+      </div>
+    );
+  }
+
+  if (!building) {
+    return (
+      <div className="mx-auto max-w-md p-8 text-center text-sm text-ink-400">
+        Loading…
       </div>
     );
   }
@@ -89,7 +135,17 @@ export default function TenantIntakePage() {
           setSubmitting(true);
           setError(null);
           const fd = new FormData(e.currentTarget);
-          const body = Object.fromEntries(fd.entries());
+          const body = Object.fromEntries(fd.entries()) as Record<string, string>;
+
+          // Derive a title from category + unit. The API requires `title` but
+          // the tenant form intentionally doesn't ask for it — we craft one
+          // ("No heat — Apt 7C") that's good enough to scan in a list.
+          const categoryLabel =
+            CATEGORY_LABELS[body.category ?? "other"] ?? "Repair request";
+          const titlePieces = [categoryLabel];
+          if (body.unit_label) titlePieces.push(`Apt ${body.unit_label}`);
+          (body as any).title = titlePieces.join(" — ");
+
           const res = await fetch("/api/work-orders", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -97,7 +153,9 @@ export default function TenantIntakePage() {
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            setError(data.error ?? "Couldn't send. Try again or call your super.");
+            setError(
+              data.error ?? "Couldn't send. Try again or call your super."
+            );
             setSubmitting(false);
             return;
           }
@@ -109,7 +167,12 @@ export default function TenantIntakePage() {
           <input name="reporter_name" required className={fieldClass} />
         </Field>
         <Field label="Apartment">
-          <input name="unit_label" required placeholder="e.g. 7C" className={fieldClass} />
+          <input
+            name="unit_label"
+            required
+            placeholder="e.g. 7C"
+            className={fieldClass}
+          />
         </Field>
         <Field label="Phone (so we can update you)">
           <input
