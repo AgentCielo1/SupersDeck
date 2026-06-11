@@ -18,10 +18,33 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 //  have accounts.
 // =============================================================================
 
+// Pages anyone can reach without signing in.
 const PUBLIC_PATHS = ["/login", "/auth", "/intake", "/track"];
 
-function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+// API endpoints that tenant intake needs to call anonymously. Whitelisted
+// by method so the PATCH/DELETE variants of the same paths stay private:
+//   • POST /api/work-orders        — tenant submits a new ticket from /intake.
+//   • GET  /api/buildings/<id>     — both /intake and the QR poster fetch the
+//                                    building name + address (no manager email
+//                                    / CO data — the GET handler trims those).
+const PUBLIC_API_BY_METHOD: Array<{ method: string; prefix: string; exact?: boolean }> = [
+  { method: "POST", prefix: "/api/work-orders", exact: true },
+  { method: "GET", prefix: "/api/buildings" },
+];
+
+function isPublic(pathname: string, method: string): boolean {
+  for (const p of PUBLIC_PATHS) {
+    if (pathname === p || pathname.startsWith(p + "/")) return true;
+  }
+  for (const r of PUBLIC_API_BY_METHOD) {
+    if (r.method !== method) continue;
+    if (r.exact) {
+      if (pathname === r.prefix) return true;
+    } else {
+      if (pathname === r.prefix || pathname.startsWith(r.prefix + "/")) return true;
+    }
+  }
+  return false;
 }
 
 export async function middleware(request: NextRequest) {
@@ -65,7 +88,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && !isPublic(pathname)) {
+  if (!user && !isPublic(pathname, request.method)) {
     const loginUrl = new URL("/login", request.url);
     // Preserve where the user was trying to go so we can bounce them back.
     if (pathname !== "/") loginUrl.searchParams.set("next", pathname);
