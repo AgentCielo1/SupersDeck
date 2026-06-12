@@ -15,7 +15,75 @@ import QRCode from "qrcode";
 //  Building lookup uses the live DB via GET /api/buildings/:id so the
 //  poster's title matches whatever the building is actually called now —
 //  not whatever the seed shipped with.
+//
+//  Multilingual: each of EN / ES / ZH / RU can be independently toggled
+//  on/off. All four default ON. Translated content lives in LANGUAGE_PACK
+//  below — keep these short so 4 stacked fit on one page.
 // =============================================================================
+
+type LangCode = "en" | "es" | "zh" | "ru";
+
+const LANGUAGE_PACK: Record<
+  LangCode,
+  {
+    name: string;
+    title: string;
+    scanHeading: string;
+    steps: string[];
+    emergency: string;
+  }
+> = {
+  en: {
+    name: "English",
+    title: "Need a repair?",
+    scanHeading: "Scan with your phone camera",
+    steps: [
+      "Open your camera app.",
+      "Point it at the square above.",
+      "Tap the link that appears.",
+      "Fill out the short form. Your super will get it.",
+    ],
+    emergency: "Emergency? Call 911 or 311 first.",
+  },
+  es: {
+    name: "Español",
+    title: "¿Necesita una reparación?",
+    scanHeading: "Escanee con la cámara de su teléfono",
+    steps: [
+      "Abra la cámara.",
+      "Apúntela al cuadrado de arriba.",
+      "Toque el enlace que aparece.",
+      "Llene el formulario. Su súper lo recibirá.",
+    ],
+    emergency: "¿Emergencia? Llame primero al 911 o al 311.",
+  },
+  zh: {
+    name: "中文",
+    title: "需要维修吗？",
+    scanHeading: "用手机相机扫描",
+    steps: [
+      "打开相机应用。",
+      "对准上方的方块。",
+      "点击出现的链接。",
+      "填写简短表单。管理员会收到。",
+    ],
+    emergency: "紧急情况？请先拨打 911 或 311。",
+  },
+  ru: {
+    name: "Русский",
+    title: "Нужен ремонт?",
+    scanHeading: "Отсканируйте камерой телефона",
+    steps: [
+      "Откройте приложение камеры.",
+      "Наведите на квадрат выше.",
+      "Нажмите на появившуюся ссылку.",
+      "Заполните короткую форму. Управдом её получит.",
+    ],
+    emergency: "Экстренная ситуация? Сначала позвоните 911 или 311.",
+  },
+};
+
+const ALL_LANGS: LangCode[] = ["en", "es", "zh", "ru"];
 
 export default function PosterPage() {
   const params = useParams<{ id: string }>();
@@ -26,7 +94,16 @@ export default function PosterPage() {
   const [origin, setOrigin] = useState<string>("");
   const [superName, setSuperName] = useState("");
   const [superPhone, setSuperPhone] = useState("");
-  const [language, setLanguage] = useState<"en" | "es" | "both">("both");
+  const [enabledLangs, setEnabledLangs] = useState<Record<LangCode, boolean>>({
+    en: true,
+    es: true,
+    zh: true,
+    ru: true,
+  });
+  const activeLangs = ALL_LANGS.filter((l) => enabledLangs[l]);
+  // Tighter typography when 3+ languages are enabled so we still fit on one
+  // letter page.
+  const compact = activeLangs.length >= 3;
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -137,20 +214,31 @@ export default function PosterPage() {
             className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm"
           />
         </label>
-        <label className="block">
+        <div className="block">
           <span className="mb-1 block text-xs font-medium text-ink-600">
-            Language
+            Languages
           </span>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as typeof language)}
-            className="w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm"
-          >
-            <option value="both">English + Español</option>
-            <option value="en">English only</option>
-            <option value="es">Español only</option>
-          </select>
-        </label>
+          <div className="flex flex-wrap gap-2">
+            {ALL_LANGS.map((code) => (
+              <label
+                key={code}
+                className="flex cursor-pointer items-center gap-1 rounded-md border border-ink-200 bg-white px-2 py-1.5 text-sm hover:bg-ink-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={enabledLangs[code]}
+                  onChange={(e) =>
+                    setEnabledLangs((prev) => ({
+                      ...prev,
+                      [code]: e.target.checked,
+                    }))
+                  }
+                />
+                <span>{LANGUAGE_PACK[code].name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="poster mx-auto max-w-[8.5in] rounded-xl2 border border-ink-200 bg-white p-10 shadow-sm">
@@ -161,28 +249,43 @@ export default function PosterPage() {
           <div className="mt-1 text-sm text-ink-600">{building.address}</div>
         </div>
 
-        <div className="mt-8 text-center">
-          {(language === "en" || language === "both") && (
-            <h1 className="text-[44px] font-bold leading-tight text-ink-900">
-              Need a repair?
-            </h1>
-          )}
-          {(language === "es" || language === "both") && (
-            <h2 className="mt-1 text-[28px] font-semibold leading-tight text-ink-600">
-              ¿Necesita una reparación?
-            </h2>
-          )}
+        <div className={compact ? "mt-5 text-center" : "mt-8 text-center"}>
+          {activeLangs.map((code, idx) => {
+            const isPrimary = idx === 0;
+            const sizeCls = isPrimary
+              ? compact
+                ? "text-[32px]"
+                : "text-[44px]"
+              : compact
+              ? "text-[20px]"
+              : "text-[28px]";
+            const colorCls = isPrimary ? "text-ink-900" : "text-ink-600";
+            const weightCls = isPrimary ? "font-bold" : "font-semibold";
+            return (
+              <div
+                key={code}
+                className={`mt-1 leading-tight ${sizeCls} ${colorCls} ${weightCls}`}
+                lang={code}
+              >
+                {LANGUAGE_PACK[code].title}
+              </div>
+            );
+          })}
         </div>
 
-        <div className="mt-6 flex flex-col items-center">
+        <div className={`${compact ? "mt-4" : "mt-6"} flex flex-col items-center`}>
           {qrSrc ? (
             <img
               src={qrSrc}
               alt={`QR code for ${intakeUrl}`}
-              className="h-72 w-72"
+              className={compact ? "h-56 w-56" : "h-72 w-72"}
             />
           ) : (
-            <div className="flex h-72 w-72 items-center justify-center border border-dashed border-ink-200 text-xs text-ink-400">
+            <div
+              className={`flex ${
+                compact ? "h-56 w-56" : "h-72 w-72"
+              } items-center justify-center border border-dashed border-ink-200 text-xs text-ink-400`}
+            >
               Generating QR…
             </div>
           )}
@@ -191,44 +294,57 @@ export default function PosterPage() {
           </div>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 text-center sm:grid-cols-2">
-          {(language === "en" || language === "both") && (
-            <div>
-              <div className="text-lg font-semibold text-ink-900">
-                Scan with your phone camera
+        <div
+          className={`${
+            compact ? "mt-5" : "mt-8"
+          } grid gap-4 text-center sm:gap-6 ${
+            activeLangs.length >= 3
+              ? "grid-cols-2"
+              : activeLangs.length === 2
+              ? "grid-cols-2"
+              : "grid-cols-1"
+          }`}
+        >
+          {activeLangs.map((code) => (
+            <div key={code} lang={code}>
+              <div
+                className={`font-semibold text-ink-900 ${
+                  compact ? "text-sm" : "text-lg"
+                }`}
+              >
+                {LANGUAGE_PACK[code].scanHeading}
               </div>
-              <ol className="mx-auto mt-2 max-w-xs list-decimal space-y-1 pl-5 text-left text-sm text-ink-600">
-                <li>Open your camera app.</li>
-                <li>Point it at the square above.</li>
-                <li>Tap the link that appears.</li>
-                <li>Fill out the short form. Your super will get it.</li>
+              <ol
+                className={`mx-auto mt-1 max-w-xs list-decimal space-y-0.5 pl-5 text-left text-ink-600 ${
+                  compact ? "text-xs" : "text-sm"
+                }`}
+              >
+                {LANGUAGE_PACK[code].steps.map((step, i) => (
+                  <li key={i}>{step}</li>
+                ))}
               </ol>
             </div>
-          )}
-          {(language === "es" || language === "both") && (
-            <div>
-              <div className="text-lg font-semibold text-ink-900">
-                Escanee con la cámara de su teléfono
-              </div>
-              <ol className="mx-auto mt-2 max-w-xs list-decimal space-y-1 pl-5 text-left text-sm text-ink-600">
-                <li>Abra la cámara.</li>
-                <li>Apúntela al cuadrado de arriba.</li>
-                <li>Toque el enlace que aparece.</li>
-                <li>Llene el formulario. Su súper lo recibirá.</li>
-              </ol>
-            </div>
-          )}
+          ))}
         </div>
 
-        <div className="mt-8 rounded-md border-2 border-danger-600 bg-danger-50 p-4 text-center">
-          <div className="text-sm font-semibold text-danger-800">
-            Emergency? Call 911 or 311 first.
-          </div>
-          {(language === "es" || language === "both") && (
-            <div className="text-xs text-danger-800">
-              ¿Emergencia? Llame primero al 911 o al 311.
+        <div
+          className={`${
+            compact ? "mt-5" : "mt-8"
+          } rounded-md border-2 border-danger-600 bg-danger-50 p-3 text-center`}
+        >
+          {activeLangs.map((code, idx) => (
+            <div
+              key={code}
+              lang={code}
+              className={
+                idx === 0
+                  ? "text-sm font-semibold text-danger-800"
+                  : "mt-0.5 text-xs text-danger-800"
+              }
+            >
+              {LANGUAGE_PACK[code].emergency}
             </div>
-          )}
+          ))}
           <div className="mt-1 text-xs text-danger-800">
             Fire · gas smell · flooding · lockout · no heat / no hot water
           </div>

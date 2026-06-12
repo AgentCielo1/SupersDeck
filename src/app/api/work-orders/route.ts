@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import { getServerSupabase } from "@/lib/supabase";
 import { pushToAdminsAndSupers } from "@/lib/push";
+import { translateToEnglish } from "@/lib/translate";
 
 // =============================================================================
 //  POST /api/work-orders — create a work order
@@ -125,6 +126,14 @@ export async function POST(request: Request) {
     title = `${categoryLabel}${unitPart}`;
   }
 
+  const descriptionText = body.description ? String(body.description).trim() : "";
+
+  // Auto-translate to English. If text is already English, this is a no-op
+  // and skips the API call (heuristic in src/lib/translate.ts). Failure
+  // falls back to passthrough — no WO gets dropped over a translation
+  // hiccup.
+  const translation = await translateToEnglish(title, descriptionText);
+
   const ticket_number = genTicketNumber();
   const row = {
     id: `wo-${ticket_number.replace("WO-", "").toLowerCase()}`,
@@ -132,7 +141,10 @@ export async function POST(request: Request) {
     unit_id,
     ticket_number,
     title,
-    description: body.description ? String(body.description).trim() : null,
+    description: descriptionText || null,
+    title_en: translation.title_en,
+    description_en: translation.description_en || null,
+    source_language: translation.source_language,
     category,
     priority: ["emergency", "high", "normal", "low"].includes(body.priority)
       ? String(body.priority)
@@ -176,7 +188,7 @@ export async function POST(request: Request) {
           ? "⚠ "
           : ""
       }New WO at ${bldg.name}`,
-      body: `${data.title}${
+      body: `${data.title_en || data.title}${
         data.reporter_name ? ` — from ${data.reporter_name}` : ""
       }`,
       url: `/work-orders/${data.id}`,
@@ -280,8 +292,9 @@ async function notifyAdmins(
       : wo.priority === "high"
       ? "⚠ HIGH"
       : "";
+  const displayTitle = wo.title_en || wo.title;
   const subject =
-    `${priorityTag ? priorityTag + " · " : ""}New WO ${wo.ticket_number}: ${wo.title}` +
+    `${priorityTag ? priorityTag + " · " : ""}New WO ${wo.ticket_number}: ${displayTitle}` +
     ` — ${building.name}`;
 
   const baseUrl =
@@ -319,7 +332,7 @@ function renderNewWoEmail(input: {
       <strong>SupersDeck · New work order</strong>
     </div>
 
-    <h2 style="margin:0 0 8px 0;font-size:18px">${wo.title}</h2>
+    <h2 style="margin:0 0 8px 0;font-size:18px">${wo.title_en || wo.title}</h2>
     <div style="color:#666;font-size:13px;margin-bottom:16px">
       <span style="font-family:ui-monospace,Menlo,monospace">${wo.ticket_number}</span> ·
       <span style="color:${priorityColor};font-weight:600">${String(wo.priority).toUpperCase()}</span> ·
@@ -345,8 +358,14 @@ function renderNewWoEmail(input: {
     </table>
 
     ${
-      wo.description
-        ? `<p style="margin:0;color:#444;font-size:13px;white-space:pre-wrap">${wo.description}</p>`
+      wo.description_en || wo.description
+        ? `<p style="margin:0;color:#444;font-size:13px;white-space:pre-wrap">${
+            wo.description_en || wo.description
+          }</p>${
+            wo.source_language && wo.source_language !== "en" && wo.description
+              ? `<details style="margin-top:8px"><summary style="font-size:11px;color:#888;cursor:pointer">Original (${wo.source_language.toUpperCase()})</summary><p style="margin:6px 0 0;color:#666;font-size:12px;white-space:pre-wrap">${wo.description}</p></details>`
+              : ""
+          }`
         : ""
     }
 
