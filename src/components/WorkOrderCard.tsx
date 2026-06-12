@@ -55,9 +55,19 @@ export default function WorkOrderCard({ wo }: { wo: WorkOrder }) {
           {wo.status.replace(/-/g, " ")}
         </span>
       </div>
-      <div className="mt-2 font-semibold text-ink-900">{wo.title}</div>
+      <div className="mt-2 font-semibold text-ink-900">
+        {wo.title_en || wo.title}
+        {wo.source_language && wo.source_language !== "en" && (
+          <span
+            title={`Translated from ${wo.source_language.toUpperCase()}`}
+            className="ml-2 rounded-md border border-ink-200 bg-ink-50 px-1 py-0.5 text-[10px] font-normal uppercase text-ink-400"
+          >
+            🌐 {wo.source_language}
+          </span>
+        )}
+      </div>
       <div className="mt-1 line-clamp-2 text-sm text-ink-600">
-        {wo.description}
+        {wo.description_en || wo.description}
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-400">
         <span>

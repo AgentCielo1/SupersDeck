@@ -71,8 +71,12 @@ export default async function WorkOrderDetailPage({
   return (
     <>
       <PageHeader
-        title={wo.title}
-        subtitle={`${wo.ticket_number} · ${building?.name}${unit ? ` · Unit ${unit.label}` : " · Common area"}`}
+        title={wo.title_en || wo.title}
+        subtitle={`${wo.ticket_number} · ${building?.name}${unit ? ` · Unit ${unit.label}` : " · Common area"}${
+          wo.source_language && wo.source_language !== "en"
+            ? ` · 🌐 Translated from ${wo.source_language.toUpperCase()}`
+            : ""
+        }`}
         actions={
           <div className="flex gap-2">
             <Link
@@ -115,7 +119,21 @@ export default async function WorkOrderDetailPage({
               <Pill>{wo.category.replace(/-/g, " ")}</Pill>
               {wo.hpd_risk && <Pill tone="danger">HPD risk</Pill>}
             </div>
-            <p className="mt-3 text-sm text-ink-900">{wo.description}</p>
+            <p className="mt-3 text-sm text-ink-900">
+              {wo.description_en || wo.description}
+            </p>
+            {wo.source_language &&
+              wo.source_language !== "en" &&
+              wo.description && (
+                <details className="mt-2 rounded-md border border-ink-200 bg-ink-50 px-3 py-2">
+                  <summary className="cursor-pointer text-xs font-medium text-ink-600">
+                    Original ({wo.source_language.toUpperCase()})
+                  </summary>
+                  <p className="mt-2 text-sm text-ink-600 whitespace-pre-wrap">
+                    {wo.description}
+                  </p>
+                </details>
+              )}
             {photoUrls.length > 0 && (
               <div className="mt-4">
                 <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">

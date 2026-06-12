@@ -192,10 +192,25 @@ export default async function PrintWorkOrderPage({
             <span className="label">S/O INITIATED</span>
           </div>
           <div className="mt-1 text-sm">
-            <div className="font-semibold uppercase">{wo.title}</div>
-            <div className="mt-1 whitespace-pre-wrap">
-              {wo.description ?? ""}
+            <div className="font-semibold uppercase">
+              {wo.title_en || wo.title}
             </div>
+            <div className="mt-1 whitespace-pre-wrap">
+              {wo.description_en || wo.description || ""}
+            </div>
+            {wo.source_language &&
+              wo.source_language !== "en" &&
+              wo.description && (
+                <div className="mt-3 border-t border-dashed border-black pt-2">
+                  <div className="text-xs uppercase tracking-wide">
+                    Original ({wo.source_language.toUpperCase()})
+                  </div>
+                  <div className="font-semibold uppercase">{wo.title}</div>
+                  <div className="mt-1 whitespace-pre-wrap">
+                    {wo.description}
+                  </div>
+                </div>
+              )}
           </div>
 
           {wo.hpd_risk && (

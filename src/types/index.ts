@@ -223,6 +223,13 @@ export interface WorkOrder {
   completion_signature?: string;    // base64 PNG data URL from tenant signature
   signed_by_name?: string;
   signed_at?: string;
+  // Auto-translation: if a tenant submits in a non-English language, the
+  // server stores the English versions here and the ISO 639-1 code in
+  // source_language. Admin/super views render *_en, the tenant track page
+  // renders the original.
+  title_en?: string;
+  description_en?: string;
+  source_language?: string;
 }
 
 export interface WorkOrderUpdate {
