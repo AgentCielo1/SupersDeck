@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import QRCode from "qrcode";
+import { publicBaseUrl } from "@/lib/format";
 
 // =============================================================================
 //  Printable QR-code lobby poster
@@ -105,10 +106,11 @@ export default function PosterPage() {
   // letter page.
   const compact = activeLangs.length >= 3;
 
+  // Use the canonical production URL for the QR, not the host the super happens
+  // to be viewing on — otherwise a poster printed from localhost / a preview
+  // deploy encodes a link that's dead when a tenant scans it.
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setOrigin(window.location.origin);
-    }
+    setOrigin(publicBaseUrl());
   }, []);
 
   useEffect(() => {

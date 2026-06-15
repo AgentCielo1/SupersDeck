@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import QRCode from "qrcode";
+import { publicBaseUrl } from "@/lib/format";
 
 // =============================================================================
 //  PUBLIC tenant intake page — reachable via QR code in each lobby.
@@ -440,10 +441,10 @@ function ConfirmationView({
 }) {
   const [qrSrc, setQrSrc] = useState<string>("");
   const [copied, setCopied] = useState(false);
-  const trackUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/track/${ticket.ticket_number}`
-      : `/track/${ticket.ticket_number}`;
+  const base = publicBaseUrl();
+  const trackUrl = base
+    ? `${base}/track/${ticket.ticket_number}`
+    : `/track/${ticket.ticket_number}`;
 
   useEffect(() => {
     QRCode.toDataURL(trackUrl, { width: 480, margin: 1, errorCorrectionLevel: "M" })
