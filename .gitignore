@@ -9,3 +9,6 @@ build
 *.log
 .DS_Store
 coverage
+
+# Vercel CLI link dir
+.vercel

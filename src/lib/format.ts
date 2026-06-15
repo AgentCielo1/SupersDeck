@@ -24,3 +24,15 @@ export function relativeTime(iso: string): string {
 export function ticketNumber(n: number): string {
   return `WO-${1000 + n}`;
 }
+
+// Canonical, tenant-facing origin for links shown to tenants — poster QR codes
+// and tracking links. Prefer the configured production URL so a poster printed
+// from localhost or a Vercel preview deployment still points to production;
+// fall back to the current origin only when NEXT_PUBLIC_BASE_URL is unset.
+// Mirrors the server-side base-URL resolution in /api/work-orders.
+export function publicBaseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "")
+  );
+}
