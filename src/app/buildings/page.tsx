@@ -1,6 +1,5 @@
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
-import EmptyState from "@/components/EmptyState";
 import { db } from "@/lib/db";
 
 export default async function BuildingsPage() {
@@ -16,20 +15,45 @@ export default async function BuildingsPage() {
         title="Buildings"
         subtitle="Profiles, unit rosters, and key compliance facts per building."
         actions={
-          <Link
-            href="/buildings/new"
-            className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-800"
-          >
-            + Add building
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href="/buildings/import"
+              className="rounded-md border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
+            >
+              ↑ Import (CSV)
+            </Link>
+            <Link
+              href="/buildings/new"
+              className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-800"
+            >
+              + Add building
+            </Link>
+          </div>
         }
       />
 
       {buildings.length === 0 && (
-        <EmptyState
-          title="No buildings yet"
-          message="The buildings table in Supabase is empty. Run supabase/seed.sql in the Supabase SQL Editor to seed the three demo buildings, then refresh this page. Or add buildings manually via the Supabase Table Editor for now (a Create Building UI is on the roadmap)."
-        />
+        <div className="rounded-xl2 border border-brand-400/30 bg-brand-50 p-8 text-center">
+          <h2 className="text-lg font-semibold text-ink-900">Let&apos;s add your buildings</h2>
+          <p className="mx-auto mt-1 max-w-md text-sm text-ink-600">
+            Start your portfolio in under a minute. Bulk-import your whole
+            building list from a spreadsheet, or add one building by hand.
+          </p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Link
+              href="/buildings/import"
+              className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"
+            >
+              ↑ Import buildings (CSV)
+            </Link>
+            <Link
+              href="/buildings/new"
+              className="rounded-md border border-ink-200 bg-white px-4 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
+            >
+              + Add one building
+            </Link>
+          </div>
+        </div>
       )}
 
       <div className="space-y-4">

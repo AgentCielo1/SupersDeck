@@ -1,0 +1,4 @@
+name,address,borough,year_built,num_floors,num_units,square_footage,bin,bbl,hpd_id,community_district,has_section8,is_pact_rad,has_oil_heat,has_cooling_tower,has_sprinkler,has_known_lead,heat_notes,generate_units,line_layout
+Riverside Gardens,110-15 62nd Drive Queens NY 11375,Queens,1962,12,144,138000,4012345,4030750001,12345,QN-06,true,false,false,false,true,false,,true,"A,B,C,D,E,F,G,H,J,K,L,M"
+Parkview Towers,250 East 30th Street New York NY 10016,Manhattan,1978,20,,210000,1023456,1009350010,67890,MN-06,false,false,true,true,true,true,Temporary oil during steam-leak repair; gas-back expected Apr 15,false,
+Bay Ridge Court,7200 4th Avenue Brooklyn NY 11209,Brooklyn,1955,6,48,52000,3045678,3058600020,,BK-10,false,false,false,false,false,true,,false,
