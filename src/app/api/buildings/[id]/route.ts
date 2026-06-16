@@ -119,3 +119,73 @@ export async function PATCH(
 
   return NextResponse.json(data);
 }
+
+// =============================================================================
+//  DELETE /api/buildings/:id — remove a building and everything attached to it
+// =============================================================================
+//  Most child tables (units, compliance_items, heat_logs, violations) have
+//  ON DELETE CASCADE, but work_orders.building_id does NOT, and work_orders /
+//  heat_logs reference units(id) without cascade — so we can't rely on a single
+//  cascade and clear children explicitly in FK-safe order first. (work_order_
+//  updates cascade automatically when their work_order is removed.)
+// =============================================================================
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  const supabase = getServerSupabase();
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Supabase is not configured." },
+      { status: 503 }
+    );
+  }
+
+  const id = params.id;
+
+  const { data: bldg, error: findErr } = await supabase
+    .from("buildings")
+    .select("id, name")
+    .eq("id", id)
+    .maybeSingle();
+  if (findErr) {
+    return NextResponse.json({ error: findErr.message }, { status: 500 });
+  }
+  if (!bldg) {
+    return NextResponse.json({ error: "Building not found" }, { status: 404 });
+  }
+
+  // Clear children before the building. work_orders + heat_logs first because
+  // they FK to units(id) with no cascade; the rest cascade but we're explicit.
+  const childTables = [
+    "work_orders",
+    "heat_logs",
+    "units",
+    "compliance_items",
+    "violations",
+    "violations_sync",
+  ];
+  for (const table of childTables) {
+    const { error } = await supabase.from(table).delete().eq("building_id", id);
+    // Tolerate tables that don't exist in this project (optional migrations).
+    if (error && !/does not exist|could not find the table/i.test(error.message)) {
+      return NextResponse.json(
+        { error: `Failed to clear ${table}: ${error.message}` },
+        { status: 500 }
+      );
+    }
+  }
+
+  const { error: delErr } = await supabase
+    .from("buildings")
+    .delete()
+    .eq("id", id);
+  if (delErr) {
+    return NextResponse.json({ error: delErr.message }, { status: 500 });
+  }
+
+  revalidatePath("/", "layout");
+  revalidatePath("/buildings");
+
+  return NextResponse.json({ ok: true, deleted: bldg.name });
+}

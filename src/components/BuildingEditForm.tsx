@@ -19,6 +19,9 @@ export default function BuildingEditForm({ building }: { building: Building }) {
   const [b, setB] = useState<Building>(building);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function set<K extends keyof Building>(k: K, v: Building[K]) {
     setB((cur) => ({ ...cur, [k]: v }));
@@ -43,7 +46,24 @@ export default function BuildingEditForm({ building }: { building: Building }) {
     router.refresh();
   }
 
+  async function onDelete() {
+    setDeleting(true);
+    setDeleteError(null);
+    const res = await fetch(`/api/buildings/${building.id}`, {
+      method: "DELETE",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setDeleteError(data.error ?? "Delete failed");
+      setDeleting(false);
+      return;
+    }
+    router.push("/buildings");
+    router.refresh();
+  }
+
   return (
+    <>
     <form
       onSubmit={onSubmit}
       className="space-y-5 rounded-xl2 border border-ink-200 bg-white p-5"
@@ -301,6 +321,55 @@ export default function BuildingEditForm({ building }: { building: Building }) {
         </button>
       </div>
     </form>
+
+    <div className="mt-4 rounded-xl2 border border-danger-600/40 bg-danger-50 p-5">
+      <h2 className="text-sm font-semibold text-danger-800">Danger zone</h2>
+      <p className="mt-1 text-xs text-danger-800">
+        Permanently delete{" "}
+        <span className="font-semibold">{building.name}</span> and everything
+        attached to it — its units, work orders, compliance items, heat logs,
+        and HPD violation records. This can&apos;t be undone.
+      </p>
+      {deleteError && (
+        <div className="mt-3 rounded-md border border-danger-600/40 bg-white px-3 py-2 text-sm text-danger-800">
+          {deleteError}
+        </div>
+      )}
+      <div className="mt-3">
+        {!confirmingDelete ? (
+          <button
+            type="button"
+            onClick={() => setConfirmingDelete(true)}
+            className="rounded-md border border-danger-600 bg-white px-4 py-2 text-sm font-medium text-danger-800 hover:bg-danger-600 hover:text-white"
+          >
+            Delete building
+          </button>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-danger-800">
+              Delete {building.name} and all its data?
+            </span>
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={deleting}
+              className="rounded-md bg-danger-600 px-4 py-2 text-sm font-medium text-white hover:bg-danger-800 disabled:opacity-60"
+            >
+              {deleting ? "Deleting…" : "Yes, delete permanently"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(false)}
+              disabled={deleting}
+              className="rounded-md border border-ink-200 bg-white px-4 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+    </>
   );
 }
 
