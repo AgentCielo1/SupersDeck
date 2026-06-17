@@ -5,9 +5,11 @@ import { qrDataUrl } from "../qr/qr";
 import type { IntakeStrings } from "./strings";
 
 export interface IntakeConfirmationProps {
-  ticketNumber: string;
-  /** Canonical public tracking URL (app resolves its own origin). */
-  trackUrl: string;
+  /** Shown only when a trackable ticket exists. */
+  ticketNumber?: string;
+  /** Canonical public tracking URL. When omitted (e.g. a review-queue intake
+   *  with no public tracking), a simple "received" confirmation is shown. */
+  trackUrl?: string;
   strings: IntakeStrings;
 }
 
@@ -20,12 +22,14 @@ export function IntakeConfirmation({
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (!trackUrl) return;
     qrDataUrl(trackUrl, { width: 480 })
       .then(setQrSrc)
       .catch(() => setQrSrc(""));
   }, [trackUrl]);
 
   async function copyLink() {
+    if (!trackUrl) return;
     try {
       await navigator.clipboard.writeText(trackUrl);
       setCopied(true);
@@ -51,13 +55,16 @@ export function IntakeConfirmation({
         </svg>
       </div>
       <h1 className="mt-4 text-lg font-semibold text-zinc-900">{t.thanks}</h1>
-      <p className="mt-2 text-sm text-zinc-600">{t.bookmark}</p>
 
-      <div className="mt-3 inline-block rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-base font-semibold">
-        {ticketNumber}
-      </div>
+      {trackUrl && <p className="mt-2 text-sm text-zinc-600">{t.bookmark}</p>}
 
-      {qrSrc && (
+      {trackUrl && ticketNumber && (
+        <div className="mt-3 inline-block rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-base font-semibold">
+          {ticketNumber}
+        </div>
+      )}
+
+      {trackUrl && qrSrc && (
         <div className="mt-4 flex flex-col items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -69,21 +76,23 @@ export function IntakeConfirmation({
         </div>
       )}
 
-      <div className="mt-4">
-        <a
-          href={trackUrl}
-          className="block w-full rounded-md bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          {t.track}
-        </a>
-        <button
-          type="button"
-          onClick={copyLink}
-          className="mt-2 block w-full rounded-md border border-zinc-300 bg-white px-4 py-3 text-sm font-medium text-zinc-600 hover:bg-zinc-100"
-        >
-          {copied ? t.copied : t.copy}
-        </button>
-      </div>
+      {trackUrl && (
+        <div className="mt-4">
+          <a
+            href={trackUrl}
+            className="block w-full rounded-md bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            {t.track}
+          </a>
+          <button
+            type="button"
+            onClick={copyLink}
+            className="mt-2 block w-full rounded-md border border-zinc-300 bg-white px-4 py-3 text-sm font-medium text-zinc-600 hover:bg-zinc-100"
+          >
+            {copied ? t.copied : t.copy}
+          </button>
+        </div>
+      )}
 
       <p className="mt-4 text-xs text-zinc-500">{t.emergency}</p>
     </div>
