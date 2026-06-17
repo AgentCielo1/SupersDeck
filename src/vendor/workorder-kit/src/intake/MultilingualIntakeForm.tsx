@@ -24,7 +24,9 @@ import { IntakeConfirmation } from "./IntakeConfirmation";
 export interface MultilingualIntakeFormProps {
   building: { id: string; name: string; address?: string };
   onSubmit: IntakeSubmit;
-  trackUrlFor: (ticketNumber: string) => string;
+  /** Build the public tracking URL. Omit for a review-queue intake (no public
+   *  tracking) — the confirmation then shows a simple "received" message. */
+  trackUrlFor?: (ticketNumber: string) => string;
   /** Pin a language; if omitted, auto-detects from the browser. */
   initialLang?: LangCode;
 }
@@ -94,19 +96,19 @@ export function MultilingualIntakeForm({
       language: lang,
     });
 
-    if (res.error || !res.ticket_number) {
-      setError(res.error ?? t.sendError);
+    if (res.error) {
+      setError(res.error);
       setSubmitting(false);
       return;
     }
-    setTicket(res.ticket_number);
+    setTicket(res.ticket_number ?? "");
   }
 
-  if (ticket) {
+  if (ticket !== null) {
     return (
       <IntakeConfirmation
-        ticketNumber={ticket}
-        trackUrl={trackUrlFor(ticket)}
+        ticketNumber={ticket || undefined}
+        trackUrl={trackUrlFor && ticket ? trackUrlFor(ticket) : undefined}
         strings={t}
       />
     );
