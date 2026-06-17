@@ -1,0 +1,14 @@
+{
+  "name": "@workorder/kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Backend-agnostic work-order kit shared across the app suite: contract, print sheet, multilingual speak-or-type intake, Claude translate, voice capture, QR poster. Imports neither ORM.",
+  "type": "module",
+  "peerDependencies": {
+    "react": ">=18",
+    "qrcode": ">=1.5"
+  },
+  "peerDependenciesMeta": {
+    "qrcode": { "optional": true }
+  }
+}
