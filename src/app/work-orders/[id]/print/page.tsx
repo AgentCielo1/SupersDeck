@@ -3,6 +3,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import PrintTrigger from "@/components/PrintTrigger";
+import EmailPdfButton from "@/components/EmailPdfButton";
 import { toNormalized } from "@/lib/wo-adapter";
 import { WorkOrderPrintSheet } from "@workorder/kit/print/WorkOrderPrintSheet";
 
@@ -42,16 +43,21 @@ export default async function PrintWorkOrderPage({
 
   return (
     <div className="bg-white">
-      <div className="mx-auto flex max-w-[8.5in] items-center justify-between px-6 pt-4 print:hidden">
+      <div className="mx-auto flex max-w-[8.5in] flex-wrap items-center justify-between gap-2 px-6 pt-4 print:hidden">
         <Link
           href={`/work-orders/${wo.id}`}
           className="rounded-md border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
         >
           ← Back to work order
         </Link>
-        <PrintTrigger label="Print this work order" />
+        <div className="flex flex-wrap items-center gap-2">
+          <EmailPdfButton woId={wo.id} ticketNumber={wo.ticket_number} />
+          <PrintTrigger label="Print this work order" />
+        </div>
       </div>
-      <WorkOrderPrintSheet wo={toNormalized(wo, { building, unit })} />
+      <div id="wo-print-sheet">
+        <WorkOrderPrintSheet wo={toNormalized(wo, { building, unit })} />
+      </div>
     </div>
   );
 }
