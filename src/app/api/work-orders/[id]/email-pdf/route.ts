@@ -1,17 +1,64 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { toNormalized } from "@/lib/wo-adapter";
+import { renderWorkOrderPdf } from "@/lib/wo-pdf";
+import type { NormalizedWorkOrder } from "@workorder/kit/contract";
 
 // =============================================================================
-//  POST /api/work-orders/:id/email-pdf
+//  /api/work-orders/:id/email-pdf
 // =============================================================================
-//  Emails a tenant/super-generated PDF of the work order. The client renders
-//  the print sheet to a PDF and posts it here; we attach it and send via
-//  Resend. Auth-gated by middleware (only signed-in staff reach it).
-//  Body: { recipient: string, pdfBase64: string }
+//  GET  — download/preview the work-order PDF (vector, one clean page).
+//  POST — email that same PDF (body: { recipient }). Auth-gated by middleware.
+//  The PDF is rendered server-side from the work order (no client capture).
 // =============================================================================
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+async function fetchUnitLabel(unitId: string | undefined) {
+  if (!unitId) return null;
+  const supabase = createSupabaseServerClient();
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from("units")
+    .select("label")
+    .eq("id", unitId)
+    .maybeSingle();
+  return (data as { label: string } | null) ?? null;
+}
+
+async function loadNormalized(
+  id: string
+): Promise<{ ticket: string; normalized: NormalizedWorkOrder } | null> {
+  const wo = await db.workOrder(id);
+  if (!wo) return null;
+  const [building, unit] = await Promise.all([
+    db.building(wo.building_id),
+    fetchUnitLabel(wo.unit_id),
+  ]);
+  return {
+    ticket: wo.ticket_number,
+    normalized: toNormalized(wo, { building, unit }),
+  };
+}
+
+export async function GET(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  const data = await loadNormalized(params.id);
+  if (!data) {
+    return NextResponse.json({ error: "Work order not found." }, { status: 404 });
+  }
+  const pdf = await renderWorkOrderPdf(data.normalized);
+  return new NextResponse(new Uint8Array(pdf), {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${data.ticket}.pdf"`,
+    },
+  });
+}
 
 export async function POST(
   request: Request,
@@ -24,7 +71,7 @@ export async function POST(
     );
   }
 
-  let body: { recipient?: string; pdfBase64?: string };
+  let body: { recipient?: string };
   try {
     body = await request.json();
   } catch {
@@ -32,39 +79,27 @@ export async function POST(
   }
 
   const recipient = String(body.recipient ?? "").trim();
-  const pdfBase64 = String(body.pdfBase64 ?? "");
   if (!EMAIL_RE.test(recipient)) {
     return NextResponse.json({ error: "A valid recipient email is required." }, { status: 400 });
   }
-  if (!pdfBase64) {
-    return NextResponse.json({ error: "Missing PDF." }, { status: 400 });
-  }
 
-  const wo = await db.workOrder(params.id);
-  if (!wo) {
+  const data = await loadNormalized(params.id);
+  if (!data) {
     return NextResponse.json({ error: "Work order not found." }, { status: 404 });
   }
 
-  // html2pdf/jsPDF prefixes the data URI with extra params (e.g.
-  // "data:application/pdf;filename=generated.pdf;base64,"), so strip everything
-  // up to and including "base64," — anything left over corrupts the decode.
-  const marker = "base64,";
-  const at = pdfBase64.indexOf(marker);
-  const content = Buffer.from(
-    at >= 0 ? pdfBase64.slice(at + marker.length) : pdfBase64,
-    "base64"
-  );
-  const titleEn = wo.title_en || wo.title;
+  const pdf = await renderWorkOrderPdf(data.normalized);
+  const titleEn = data.normalized.title;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error } = await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || "SupersDeck <onboarding@resend.dev>",
     to: recipient,
-    subject: `Work order ${wo.ticket_number}${titleEn ? ` — ${titleEn}` : ""}`,
-    html: `<p>Attached: work order <strong>${wo.ticket_number}</strong>.</p>${
+    subject: `Work order ${data.ticket}${titleEn ? ` — ${titleEn}` : ""}`,
+    html: `<p>Attached: work order <strong>${data.ticket}</strong>.</p>${
       titleEn ? `<p>${titleEn}</p>` : ""
     }`,
-    attachments: [{ filename: `${wo.ticket_number}.pdf`, content }],
+    attachments: [{ filename: `${data.ticket}.pdf`, content: pdf }],
   });
 
   if (error) {

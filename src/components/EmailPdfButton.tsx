@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 
 // =============================================================================
-//  EmailPdfButton — 1-click email of the work-order PDF
+//  EmailPdfButton — download or 1-click email the work-order PDF
 // =============================================================================
-//  Captures the already-rendered print sheet (#wo-print-sheet) to a PDF in the
-//  browser (html2pdf), then posts it to the server to email via Resend. The
-//  recipient is editable and remembered (localStorage); defaults to the owner.
+//  The PDF is rendered server-side (vector, one clean page) — this component
+//  just triggers it. "Download PDF" opens the GET; "Email PDF" posts the
+//  recipient (editable, remembered in localStorage; defaults to the owner).
 //
-//  Note: with the default Resend sender (onboarding@resend.dev) email can only
-//  be delivered to the Resend account's own address until a custom domain is
+//  Note: with the default Resend sender (onboarding@resend.dev) email only
+//  delivers to the Resend account's own address until a custom domain is
 //  verified — then any recipient works.
 // =============================================================================
 
@@ -19,7 +19,7 @@ const STORAGE_KEY = "wo-email-recipient";
 
 export default function EmailPdfButton({
   woId,
-  ticketNumber,
+  ticketNumber: _ticketNumber,
 }: {
   woId: string;
   ticketNumber: string;
@@ -38,25 +38,10 @@ export default function EmailPdfButton({
     setMsg("");
     localStorage.setItem(STORAGE_KEY, recipient.trim());
     try {
-      const el = document.getElementById("wo-print-sheet");
-      if (!el) throw new Error("Work order not found on page");
-
-      const html2pdf = (await import("html2pdf.js")).default;
-      const pdfBase64: string = await html2pdf()
-        .from(el)
-        .set({
-          margin: 0.5,
-          filename: `${ticketNumber}.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-          jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-        })
-        .outputPdf("datauristring");
-
       const res = await fetch(`/api/work-orders/${woId}/email-pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipient: recipient.trim(), pdfBase64 }),
+        body: JSON.stringify({ recipient: recipient.trim() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -74,13 +59,21 @@ export default function EmailPdfButton({
 
   return (
     <div className="no-print flex flex-wrap items-center gap-2 print:hidden">
+      <a
+        href={`/api/work-orders/${woId}/email-pdf`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="rounded-md border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
+      >
+        Download PDF
+      </a>
       <input
         value={recipient}
         onChange={(e) => setRecipient(e.target.value)}
         type="email"
         aria-label="Email recipient"
         placeholder="recipient@email.com"
-        className="w-56 rounded-md border border-ink-200 bg-white px-2 py-1.5 text-sm"
+        className="w-52 rounded-md border border-ink-200 bg-white px-2 py-1.5 text-sm"
       />
       <button
         type="button"
