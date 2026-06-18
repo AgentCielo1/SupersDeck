@@ -45,8 +45,13 @@ export async function POST(
     return NextResponse.json({ error: "Work order not found." }, { status: 404 });
   }
 
+  // html2pdf/jsPDF prefixes the data URI with extra params (e.g.
+  // "data:application/pdf;filename=generated.pdf;base64,"), so strip everything
+  // up to and including "base64," — anything left over corrupts the decode.
+  const marker = "base64,";
+  const at = pdfBase64.indexOf(marker);
   const content = Buffer.from(
-    pdfBase64.replace(/^data:application\/pdf;base64,/, ""),
+    at >= 0 ? pdfBase64.slice(at + marker.length) : pdfBase64,
     "base64"
   );
   const titleEn = wo.title_en || wo.title;
