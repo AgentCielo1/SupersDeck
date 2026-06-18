@@ -22,3 +22,22 @@ body {
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #d8d8d4; border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: #b4b2a9; }
+
+/* ===========================================================================
+ *  Print — only page content (e.g. the work-order sheet) belongs in a PDF.
+ *  All app chrome (sidebar, bottom nav, "More" sheet, install prompt) is
+ *  position:fixed, so hide every fixed element. Also drop the body's gray
+ *  background + bottom-nav padding so the sheet stays a single clean page.
+ * ======================================================================== */
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+  body {
+    padding-bottom: 0 !important;
+  }
+  .fixed {
+    display: none !important;
+  }
+}
