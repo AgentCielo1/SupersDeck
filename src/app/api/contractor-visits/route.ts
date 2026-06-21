@@ -107,6 +107,7 @@ export async function POST(request: Request) {
     id: `cv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
     contractor_id: body.contractor_id ?? null,
     inline_name: body.inline_name ?? null,
+    phone: body.phone ?? null,
     company_id: body.company_id ?? null,
     building_id: String(body.building_id),
     unit_id: body.unit_id ?? null,

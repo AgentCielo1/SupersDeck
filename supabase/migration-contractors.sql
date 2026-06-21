@@ -60,6 +60,7 @@ create table if not exists contractor_visits (
   id                        text primary key,
   contractor_id             text references contractors(id) on delete set null,
   inline_name               text,  -- quick/simple sign-in without a saved contractor
+  phone                     text,
   company_id                text references vendors(id) on delete set null,
   building_id               text not null references buildings(id) on delete cascade,
   unit_id                   text references units(id) on delete set null,
@@ -79,6 +80,8 @@ create index if not exists idx_visits_signin on contractor_visits (sign_in_at);
 -- fast "who's on site now" lookups
 create index if not exists idx_visits_onsite on contractor_visits (building_id)
   where sign_out_at is null;
+-- Backfill for DBs migrated before `phone` was added to contractor_visits above.
+alter table contractor_visits add column if not exists phone text;
 
 -- ----------------------------- blocked attempts (audit) -------------------
 create table if not exists contractor_blocked_attempts (
