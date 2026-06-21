@@ -137,6 +137,7 @@ export default function ContractorSignInPage() {
     const payload = {
       company_id: companyId || null,
       inline_name: name.trim(),
+      phone: phone.trim() || null,
       purpose: purpose.trim() || null,
       method: "qr",
       photo_base64: photo || undefined,

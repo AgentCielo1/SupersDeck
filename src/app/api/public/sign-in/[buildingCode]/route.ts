@@ -123,6 +123,7 @@ export async function POST(
     id: visitId,
     contractor_id: body.contractor_id ?? null,
     inline_name: body.inline_name ?? null,
+    phone: body.phone ?? null,
     company_id: body.company_id ?? null,
     building_id,
     unit_id: body.unit_id ?? null,

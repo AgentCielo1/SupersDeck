@@ -44,6 +44,7 @@ export interface ContractorVisitRow {
   id: ID;
   contractor_id?: string | null;
   inline_name?: string | null;
+  phone?: string | null;
   company_id?: string | null;
   building_id: string;
   unit_id?: string | null;
