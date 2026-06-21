@@ -15,7 +15,7 @@ export interface Contractor {
   phone?: string | null;
   email?: string | null;
   photo_url?: string | null;
-  returning: boolean;
+  is_returning: boolean;
   notes?: string | null;
   created_at: string;
 }

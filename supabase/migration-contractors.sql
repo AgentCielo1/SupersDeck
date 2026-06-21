@@ -20,7 +20,7 @@ create table if not exists contractors (
   phone         text,
   email         text,
   photo_url     text,
-  returning     boolean not null default false,
+  is_returning  boolean not null default false,
   notes         text,
   created_at    timestamptz not null default now()
 );
