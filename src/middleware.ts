@@ -19,17 +19,18 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 // =============================================================================
 
 // Pages anyone can reach without signing in.
-const PUBLIC_PATHS = ["/login", "/auth", "/intake", "/track"];
+const PUBLIC_PATHS = ["/login", "/auth", "/intake", "/track", "/sign-in"];
 
-// API endpoints that tenant intake needs to call anonymously. Whitelisted
-// by method so the PATCH/DELETE variants of the same paths stay private:
-//   • POST /api/work-orders        — tenant submits a new ticket from /intake.
-//   • GET  /api/buildings/<id>     — both /intake and the QR poster fetch the
-//                                    building name + address (no manager email
-//                                    / CO data — the GET handler trims those).
+// API endpoints that tenant intake + contractor sign-in call anonymously.
+// Whitelisted by method so PATCH/DELETE variants of the same paths stay private:
+//   • POST /api/work-orders          — tenant submits a new ticket from /intake.
+//   • GET  /api/buildings/<id>       — /intake + QR posters fetch building info.
+//   • GET/POST /api/public/sign-in/* — contractor self sign-in from the QR code.
 const PUBLIC_API_BY_METHOD: Array<{ method: string; prefix: string; exact?: boolean }> = [
   { method: "POST", prefix: "/api/work-orders", exact: true },
   { method: "GET", prefix: "/api/buildings" },
+  { method: "GET", prefix: "/api/public/sign-in" },
+  { method: "POST", prefix: "/api/public/sign-in" },
 ];
 
 function isPublic(pathname: string, method: string): boolean {
