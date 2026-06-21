@@ -96,6 +96,23 @@ create index if not exists idx_blocked_at on contractor_blocked_attempts (attemp
 -- visits; everyone authenticated reads). Public QR sign-in goes through the
 -- service-role API (like tenant intake), so no anon insert policy is needed.
 -- =============================================================================
+-- Self-contained: define get_my_role() here too, in case role-policies.sql
+-- hasn't been run on this database yet. `create or replace` makes it a no-op
+-- if it already exists. Requires the profiles table (created by auth-setup.sql).
+create or replace function public.get_my_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select role from public.profiles where id = auth.uid()),
+    'anon'
+  );
+$$;
+grant execute on function public.get_my_role() to authenticated;
+
 alter table contractors                enable row level security;
 alter table compliance_documents       enable row level security;
 alter table contractor_visits          enable row level security;
