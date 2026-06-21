@@ -40,4 +40,25 @@ body {
   .fixed {
     display: none !important;
   }
+  /* Never let revealed rent figures end up in a print/PDF. */
+  .rent-real {
+    display: none !important;
+  }
+  .rent-mask {
+    display: inline !important;
+  }
+}
+
+/* ===========================================================================
+ *  Owner-only rent column (Leases page). Masked by default; RentRevealButton
+ *  toggles `.rents-on` on the table wrapper to swap the mask for the value.
+ * ======================================================================== */
+.rent-real {
+  display: none;
+}
+.rents-on .rent-real {
+  display: inline;
+}
+.rents-on .rent-mask {
+  display: none;
 }

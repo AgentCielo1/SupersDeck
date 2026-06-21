@@ -31,6 +31,13 @@ import type {
   HeatLog,
 } from "@/types";
 
+// Sensitive — only ever fetched for admins (see fetchUnitRents).
+export type UnitRent = {
+  base: number | null;
+  repeat: number | null;
+  total: number | null;
+};
+
 // =============================================================================
 //  Unified data layer
 // =============================================================================
@@ -197,6 +204,32 @@ async function fetchComplianceItems(): Promise<ComplianceItem[]> {
   return generateComplianceItems(buildings, completed);
 }
 
+// Sensitive rent figures live in their own RLS-locked table (admin-only).
+// Reads go through the session client, so RLS already returns zero rows to
+// non-admins; a missing table or denied read is non-fatal (we just show none).
+async function fetchUnitRents(): Promise<Record<string, UnitRent>> {
+  const s = getSupabase();
+  if (!s) return {};
+  const { data, error } = await s
+    .from("unit_rents")
+    .select("unit_id, base_charge, repeat_charges, total_charge");
+  if (error) return {}; // table not created yet, or RLS denied (non-admin)
+  const map: Record<string, UnitRent> = {};
+  for (const r of (data ?? []) as Array<{
+    unit_id: string;
+    base_charge: number | null;
+    repeat_charges: number | null;
+    total_charge: number | null;
+  }>) {
+    map[r.unit_id] = {
+      base: r.base_charge,
+      repeat: r.repeat_charges,
+      total: r.total_charge,
+    };
+  }
+  return map;
+}
+
 // =============================================================================
 //  Public surface
 // =============================================================================
@@ -209,6 +242,7 @@ export const db = {
   building: fetchBuilding,
   units: fetchUnits,
   unitsForBuilding: fetchUnitsForBuilding,
+  unitRents: fetchUnitRents,
   workOrders: fetchWorkOrders,
   workOrder: fetchWorkOrder,
   myVendors: fetchMyVendors,

@@ -1,7 +1,9 @@
 import PageHeader from "@/components/PageHeader";
 import LeaseRowActions from "@/components/LeaseRowActions";
+import RentRevealButton from "@/components/RentRevealButton";
 import Link from "next/link";
-import { db } from "@/lib/db";
+import { db, type UnitRent } from "@/lib/db";
+import { getCurrentUserProfile } from "@/lib/supabase-server";
 import type { Building, Unit } from "@/types";
 
 // =============================================================================
@@ -34,7 +36,19 @@ function daysUntil(iso: string): number {
 }
 
 export default async function LeasesPage() {
-  const [buildings, units] = await Promise.all([db.buildings(), db.units()]);
+  const [buildings, units, profile] = await Promise.all([
+    db.buildings(),
+    db.units(),
+    getCurrentUserProfile(),
+  ]);
+  // Rent is owner/manager-only. Only fetch it for those roles (RLS would block
+  // others anyway) so it never enters the page for any other role.
+  const canSeeRent =
+    profile?.role === "admin" || profile?.role === "manager";
+  const rents: Record<string, UnitRent> = canSeeRent
+    ? await db.unitRents()
+    : {};
+  const cols = canSeeRent ? 8 : 7;
   const buildingsById: Record<string, Building> = Object.fromEntries(
     buildings.map((b) => [b.id, b])
   );
@@ -147,7 +161,18 @@ export default async function LeasesPage() {
       </div>
 
       {/* Main table */}
-      <div className="overflow-hidden rounded-xl2 border border-ink-200 bg-white">
+      {canSeeRent && (
+        <div className="mb-2 flex items-center justify-end gap-3">
+          <span className="text-xs text-ink-400">
+            Rent is owner/manager-only and hidden by default.
+          </span>
+          <RentRevealButton />
+        </div>
+      )}
+      <div
+        id="rent-scope"
+        className="overflow-hidden rounded-xl2 border border-ink-200 bg-white"
+      >
         <table className="w-full text-sm">
           <thead className="border-b border-ink-200 bg-ink-50 text-left text-xs uppercase tracking-wide text-ink-400">
             <tr>
@@ -157,13 +182,14 @@ export default async function LeasesPage() {
               <th className="px-3 py-2">Lease term</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Type</th>
+              {canSeeRent && <th className="px-3 py-2">Rent</th>}
               <th className="px-3 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {units.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-sm text-ink-400">
+                <td colSpan={cols} className="px-3 py-8 text-center text-sm text-ink-400">
                   No units yet. Import via /buildings → unit import.
                 </td>
               </tr>
@@ -227,6 +253,11 @@ export default async function LeasesPage() {
                       ? RENT_STATUS_LABELS[u.rent_status] ?? u.rent_status
                       : "—"}
                   </td>
+                  {canSeeRent && (
+                    <td className="px-3 py-2 text-xs">
+                      <RentMasked rent={rents[u.id]} />
+                    </td>
+                  )}
                   <td className="px-3 py-2">
                     <LeaseRowActions
                       unitId={u.id}
@@ -251,6 +282,40 @@ export default async function LeasesPage() {
         .
       </p>
     </>
+  );
+}
+
+function fmtMoney(n: number): string {
+  return `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+// Masked by default; the real value sits in a `.rent-real` span that the
+// RentRevealButton un-hides via CSS. Only ever rendered for admins.
+function RentMasked({ rent }: { rent?: UnitRent }) {
+  if (!rent || rent.total == null) {
+    return <span className="text-ink-300">—</span>;
+  }
+  return (
+    <span className="whitespace-nowrap">
+      <span className="rent-mask select-none tracking-widest text-ink-400">
+        ••••
+      </span>
+      <span
+        className="rent-real font-medium text-ink-900"
+        title={
+          rent.base != null
+            ? `Base ${fmtMoney(rent.base)}${
+                rent.repeat != null ? ` · adj ${fmtMoney(rent.repeat)}` : ""
+              }`
+            : undefined
+        }
+      >
+        {fmtMoney(rent.total)}
+      </span>
+    </span>
   );
 }
 
