@@ -17,6 +17,17 @@ function fmtDuration(mins: number): string {
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
+function initials(name: string): string {
+  return (
+    name
+      .split(" ")
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "?"
+  );
+}
 
 export default async function ContractorLogbookPage() {
   const supabase = getServerSupabase();
@@ -25,6 +36,7 @@ export default async function ContractorLogbookPage() {
   let buildings: NameRow[] = [];
   let vendors: NameRow[] = [];
   let contractors: NameRow[] = [];
+  const photoUrls: Record<string, string> = {};
 
   if (supabase) {
     const [v, b, ve, c] = await Promise.all([
@@ -41,6 +53,17 @@ export default async function ContractorLogbookPage() {
     buildings = (b.data ?? []) as NameRow[];
     vendors = (ve.data ?? []) as NameRow[];
     contractors = (c.data ?? []) as NameRow[];
+
+    // Verification photos live in a private bucket — mint short-lived signed URLs.
+    const paths = visits.map((x) => x.photo_url).filter(Boolean) as string[];
+    if (paths.length) {
+      const { data: signed } = await supabase.storage
+        .from("contractor-photos")
+        .createSignedUrls(paths, 3600);
+      (signed ?? []).forEach((s: { path?: string | null; signedUrl?: string | null }) => {
+        if (s.path && s.signedUrl) photoUrls[s.path] = s.signedUrl;
+      });
+    }
   }
 
   const bName = (id: string) => buildings.find((x) => x.id === id)?.name ?? "—";
@@ -86,8 +109,17 @@ export default async function ContractorLogbookPage() {
           <ul className="divide-y">
             {visits.map((v) => {
               const mins = minutesOnSite(v.sign_in_at);
+              const photo = v.photo_url ? photoUrls[v.photo_url] : undefined;
               return (
                 <li key={v.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden rounded-lg bg-brand-50 text-xs font-semibold text-brand-800">
+                    {photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photo} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      initials(personName(v))
+                    )}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 font-medium">
                       {personName(v)}
@@ -103,9 +135,7 @@ export default async function ContractorLogbookPage() {
                     </div>
                   </div>
                   <div className="text-right text-xs text-ink-400">
-                    <div className="text-sm font-semibold text-ink-900">
-                      {fmtDuration(mins)}
-                    </div>
+                    <div className="text-sm font-semibold text-ink-900">{fmtDuration(mins)}</div>
                     <div>
                       in {fmtTime(v.sign_in_at)} · {visitMethodLabel(v.method)}
                     </div>
