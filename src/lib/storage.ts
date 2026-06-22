@@ -14,9 +14,35 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 // =============================================================================
 
 export const PHOTO_BUCKET = "wo-photos";
+export { TASK_BUCKET } from "@/types/tasks";
 
 export function isStoragePath(s: string): boolean {
   return !s.startsWith("data:");
+}
+
+/**
+ * Signed URLs (1h) for object paths in any private bucket, keyed by path.
+ * Uses the session-aware client so storage RLS sees the calling user.
+ */
+export async function signedUrlsFor(
+  paths: string[],
+  bucket: string
+): Promise<Record<string, string>> {
+  if (!paths || paths.length === 0) return {};
+  const supabase = createSupabaseServerClient();
+  if (!supabase) return {};
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrls(paths, 3600);
+  if (error || !data) {
+    console.error("[storage] signedUrlsFor:", error?.message);
+    return {};
+  }
+  const map: Record<string, string> = {};
+  data.forEach((d, i) => {
+    if (d.signedUrl) map[paths[i]] = d.signedUrl;
+  });
+  return map;
 }
 
 /**
