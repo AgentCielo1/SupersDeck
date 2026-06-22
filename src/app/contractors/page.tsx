@@ -71,7 +71,7 @@ export default async function ContractorsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Contractor compliance</h1>
           <p className="mt-1 text-sm text-ink-400">
@@ -81,6 +81,15 @@ export default async function ContractorsPage() {
             </Link>
           </p>
         </div>
+        <Link
+          href="/contractors/qr"
+          className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" />
+          </svg>
+          Sign-in QR &amp; link
+        </Link>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
