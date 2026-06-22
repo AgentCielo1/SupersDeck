@@ -86,7 +86,7 @@ export async function POST(request: Request) {
   // Validate the building exists (and is something the caller can target).
   const { data: bldg } = await supabase
     .from("buildings")
-    .select("id, name, address")
+    .select("id, name, address, org_id")
     .eq("id", String(body.building_id))
     .maybeSingle();
   if (!bldg) {
@@ -137,6 +137,7 @@ export async function POST(request: Request) {
   const ticket_number = genTicketNumber();
   const row = {
     id: `wo-${ticket_number.replace("WO-", "").toLowerCase()}`,
+    org_id: (bldg as any).org_id,
     building_id: String(body.building_id),
     unit_id,
     ticket_number,
@@ -169,6 +170,7 @@ export async function POST(request: Request) {
   // Seed the timeline with a creation event.
   await supabase.from("work_order_updates").insert({
     id: `wou-${row.id}-${Date.now()}-created`,
+    org_id: row.org_id,
     work_order_id: row.id,
     message: `Reported: ${row.title}`,
     author: row.reporter_name,
@@ -226,7 +228,7 @@ async function sendTenantConfirmation(
 <html><body style="font-family:-apple-system,Segoe UI,Inter,sans-serif;color:#1a1a18;background:#f7f7f6;margin:0;padding:24px">
   <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:24px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <div style="width:32px;height:32px;border-radius:6px;background:#1a3a8c;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600">S</div>
+      <div style="width:32px;height:32px;border-radius:6px;background:#1a3a8c;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600">B</div>
       <strong>BoroDesk</strong>
     </div>
 
@@ -328,7 +330,7 @@ function renderNewWoEmail(input: {
 <html><body style="font-family:-apple-system,Segoe UI,Inter,sans-serif;color:#1a1a18;background:#f7f7f6;margin:0;padding:24px">
   <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:24px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <div style="width:32px;height:32px;border-radius:6px;background:#1a3a8c;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600">S</div>
+      <div style="width:32px;height:32px;border-radius:6px;background:#1a3a8c;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600">B</div>
       <strong>BoroDesk · New work order</strong>
     </div>
 
