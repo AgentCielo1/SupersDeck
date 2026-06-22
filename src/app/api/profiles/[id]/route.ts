@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
+import { getServerSupabase } from "@/lib/supabase";
 
 // =============================================================================
 //  PATCH /api/profiles/:id — change a user's role or name (admin only)
@@ -51,7 +52,7 @@ export async function PATCH(
   // Safety: an admin can't demote themselves below admin (otherwise the
   // org could end up with zero admins).
   if (me.id === params.id && update.role && update.role !== "admin") {
-    const { count } = await getServerSupabase()!
+    const { count } = await createSupabaseServerClient()!
       .from("profiles")
       .select("id", { count: "exact", head: true })
       .eq("role", "admin");
@@ -66,7 +67,7 @@ export async function PATCH(
     }
   }
 
-  const supabase = getServerSupabase()!;
+  const supabase = createSupabaseServerClient()!;
   const { data, error } = await supabase
     .from("profiles")
     .update(update)
@@ -100,9 +101,26 @@ export async function DELETE(
     );
   }
 
+  // Org guard: only delete a user visible in MY org (RLS hides other orgs).
+  const rls = createSupabaseServerClient()!;
+  const { data: target } = await rls
+    .from("profiles")
+    .select("id, org_id")
+    .eq("id", params.id)
+    .maybeSingle();
+  if (!target) {
+    return NextResponse.json(
+      { error: "User not found in your organization" },
+      { status: 404 }
+    );
+  }
+
   // Deleting from auth.users cascades to public.profiles via the FK.
-  const supabase = getServerSupabase()!;
-  const { error } = await supabase.auth.admin.deleteUser(params.id);
+  // auth.admin requires the service-role key.
+  const admin = getServerSupabase();
+  if (!admin)
+    return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  const { error } = await admin.auth.admin.deleteUser(params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   revalidatePath("/people");

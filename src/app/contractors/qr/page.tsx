@@ -1,11 +1,11 @@
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import QrPosterClient from "./QrPosterClient";
 
 export const dynamic = "force-dynamic";
 
 // Authed page: server-fetches buildings, hands them to the client poster.
 export default async function ContractorQrPage() {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
 
   let buildings: { id: string; name: string; address?: string | null }[] = [];
   if (supabase) {

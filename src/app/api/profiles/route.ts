@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
+import { getServerSupabase } from "@/lib/supabase";
 
 // =============================================================================
 //  POST /api/profiles — invite a new user (admin only)
@@ -60,8 +60,10 @@ export async function POST(request: Request) {
   }
 
   const origin = new URL(request.url).origin;
+  // Stamp the invitee with the inviting admin's org so handle_new_user lands
+  // their profile in the right tenant.
   const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-    data: { role, full_name },
+    data: { role, full_name, org_id: me.org_id },
     redirectTo: `${origin}/auth/callback`,
   });
 

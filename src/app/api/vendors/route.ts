@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 // =============================================================================
 //  GET  /api/vendors  — list "my vendors" (used by the WO edit dropdown)
@@ -14,7 +14,7 @@ import { getServerSupabase } from "@/lib/supabase";
 // =============================================================================
 
 export async function GET() {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     // Seed-only mode: respond with empty list so the dropdown renders without
     // crashing. Real vendor assignment only matters with a live DB anyway.
@@ -40,7 +40,7 @@ function slug(s: string): string {
 }
 
 export async function POST(request: Request) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       {

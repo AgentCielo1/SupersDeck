@@ -1,5 +1,5 @@
 import StatCard from "@/components/StatCard";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { visitMethodLabel } from "@workorder/kit/contractor/contract";
 import type { ContractorVisitRow } from "@/types/contractors";
 
@@ -30,7 +30,7 @@ function initials(name: string): string {
 }
 
 export default async function ContractorLogbookPage() {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
 
   let visits: ContractorVisitRow[] = [];
   let buildings: NameRow[] = [];

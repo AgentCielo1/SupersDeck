@@ -196,7 +196,7 @@ export async function POST(request: Request) {
       url: `/work-orders/${data.id}`,
       tag: `wo-${data.id}`,
       priority: data.priority,
-    }).catch((e) => console.error("[work-orders] push notify failed:", e)),
+    }, data.org_id).catch((e) => console.error("[work-orders] push notify failed:", e)),
     sendTenantConfirmation(data, bldg).catch((e) =>
       console.error("[work-orders] tenant email failed:", e)
     ),
@@ -281,7 +281,8 @@ async function notifyAdmins(
   const { data: recipients } = await supabase
     .from("profiles")
     .select("email, full_name, role")
-    .in("role", ["admin", "super"]);
+    .in("role", ["admin", "super"])
+    .eq("org_id", wo.org_id);
 
   const to = (recipients ?? [])
     .map((r: any) => r.email)

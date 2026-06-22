@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 // =============================================================================
 //  GET   /api/buildings/:id  — fetch one building (used by /intake and the
@@ -18,6 +19,8 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
+  // Public (anonymous tenant intake) — service role so org RLS doesn't 404 it.
+  // Only safe-to-show columns are selected below.
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(
@@ -66,7 +69,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       {
@@ -133,7 +136,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },

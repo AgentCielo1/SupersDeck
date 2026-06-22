@@ -1,6 +1,6 @@
 import Link from "next/link";
 import StatCard from "@/components/StatCard";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import {
   coiStatus,
   complianceStatusLabel,
@@ -30,7 +30,7 @@ const STATUS_TONE: Record<ComplianceStatus, string> = {
 };
 
 export default async function ContractorsPage() {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
 
   let vendors: Vendor[] = [];
   let docs: ComplianceDocumentRow[] = [];

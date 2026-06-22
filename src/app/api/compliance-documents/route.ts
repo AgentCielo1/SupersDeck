@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 // =============================================================================
@@ -9,7 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 // =============================================================================
 
 export async function GET(request: Request) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) return NextResponse.json([]);
 
   const { searchParams } = new URL(request.url);

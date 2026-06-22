@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { db } from "@/lib/db";
 import { fetchHpdViolationsForBuildings } from "@/lib/hpd";
 import { getServerSupabase } from "@/lib/supabase";
 
@@ -34,7 +33,12 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getServerSupabase();
-  const buildings = await db.buildings();
+  // Cron has no user session → fetch buildings via service-role (db.* is
+  // session/RLS-scoped and returns nothing for an unauthenticated cron).
+  const { data: buildingsData } = supabase
+    ? await supabase.from("buildings").select("*")
+    : { data: [] as any[] };
+  const buildings = (buildingsData ?? []) as any[];
   const data = await fetchHpdViolationsForBuildings(buildings, {
     openOnly: false, // persist everything; UI filters
     limit: 500,
@@ -61,6 +65,7 @@ export async function POST(request: NextRequest) {
 
     const upserts = rows.map((r) => ({
       id: r.violationid,
+      org_id: b.org_id,
       building_id: b.id,
       class: r.violationclass ?? null,
       status: r.currentstatus ?? null,
@@ -91,6 +96,7 @@ export async function POST(request: NextRequest) {
       .upsert(
         {
           building_id: b.id,
+          org_id: b.org_id,
           last_synced_at: new Date().toISOString(),
           rows_fetched: rows.length,
           rows_new: newCount,

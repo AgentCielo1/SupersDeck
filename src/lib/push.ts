@@ -104,15 +104,16 @@ export async function pushToUsers(
 
 /** Convenience: send to every user with role admin or super. */
 export async function pushToAdminsAndSupers(
-  payload: PushPayload
+  payload: PushPayload,
+  orgId?: string
 ): Promise<{ sent: number; failed: number; reaped: number }> {
   const supabase = getServerSupabase();
   if (!supabase) return { sent: 0, failed: 0, reaped: 0 };
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("id")
-    .in("role", ["admin", "super"]);
+  let q = supabase.from("profiles").select("id").in("role", ["admin", "super"]);
+  // Multi-tenant: only notify admins/supers in the relevant org.
+  if (orgId) q = q.eq("org_id", orgId);
+  const { data } = await q;
   const ids = (data ?? []).map((p: any) => p.id as string);
   return pushToUsers(ids, payload);
 }
