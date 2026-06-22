@@ -7,14 +7,17 @@ import {
   type ComplianceDocument,
 } from "@workorder/kit/contractor/contract";
 import type { ComplianceDocumentRow } from "@/types/contractors";
+import { findOrCreateContractorByPhone } from "@/lib/contractor-recognition";
 
 // =============================================================================
 //  GET  /api/contractor-visits        — who's on site now (?building=ID)
-//  POST /api/contractor-visits         — sign a contractor in (server gate)
+//  POST /api/contractor-visits         — staff-assisted sign-in (server gate)
 // =============================================================================
 //  The compliance gate is enforced HERE, server-side: we re-derive the
 //  company's compliance status from compliance_documents and block an expired
 //  COI (when gate_enforced). Never trust a client claim of "compliant".
+//  Service-role path — org_id is set explicitly from the building (the
+//  set_org_id trigger only stamps authenticated inserts).
 // =============================================================================
 
 export async function GET(request: Request) {
@@ -54,10 +57,7 @@ function rowToDoc(d: ComplianceDocumentRow): ComplianceDocument {
 export async function POST(request: Request) {
   const supabase = getServerSupabase();
   if (!supabase) {
-    return NextResponse.json(
-      { error: "Supabase is not configured." },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
   let body: Record<string, any>;
@@ -77,6 +77,15 @@ export async function POST(request: Request) {
     );
   }
 
+  // Resolve the building's org so service-role inserts satisfy org_id (NOT NULL).
+  const { data: building } = await supabase
+    .from("buildings")
+    .select("id, org_id")
+    .eq("id", body.building_id)
+    .maybeSingle();
+  if (!building) return NextResponse.json({ error: "Building not found" }, { status: 404 });
+  const org_id = (building as any).org_id as string;
+
   const gateEnforced = body.gate_enforced ?? true;
 
   // --- compliance gate: derive status from the company's documents ---
@@ -92,6 +101,7 @@ export async function POST(request: Request) {
   if (isBlocked(status, gateEnforced)) {
     await supabase.from("contractor_blocked_attempts").insert({
       id: `blk-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      org_id,
       company_id: body.company_id ?? null,
       inline_name: body.inline_name ?? null,
       building_id: body.building_id,
@@ -103,9 +113,18 @@ export async function POST(request: Request) {
     );
   }
 
+  const recog = await findOrCreateContractorByPhone(supabase, {
+    orgId: org_id,
+    phone: body.phone,
+    name: body.inline_name,
+    companyId: body.company_id,
+    contractorId: body.contractor_id,
+  });
+
   const row = {
     id: `cv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-    contractor_id: body.contractor_id ?? null,
+    org_id,
+    contractor_id: recog.contractorId,
     inline_name: body.inline_name ?? null,
     phone: body.phone ?? null,
     company_id: body.company_id ?? null,
