@@ -7,6 +7,7 @@ import {
   type ComplianceStatus,
 } from "@workorder/kit/contractor/contract";
 import type { ComplianceDocumentRow } from "@/types/contractors";
+import { findOrCreateContractorByPhone } from "@/lib/contractor-recognition";
 
 // =============================================================================
 //  PUBLIC contractor sign-in (QR target) — no auth.
@@ -130,10 +131,18 @@ export async function POST(
     }
   }
 
+  const recog = await findOrCreateContractorByPhone(supabase, {
+    orgId: org_id,
+    phone: body.phone,
+    name: body.inline_name,
+    companyId: body.company_id,
+    contractorId: body.contractor_id,
+  });
+
   const row = {
     id: visitId,
     org_id,
-    contractor_id: body.contractor_id ?? null,
+    contractor_id: recog.contractorId,
     inline_name: body.inline_name ?? null,
     phone: body.phone ?? null,
     company_id: body.company_id ?? null,

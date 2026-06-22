@@ -9,8 +9,9 @@ import {
 import { enqueueSignIn, flushQueue } from "@/lib/offline-queue";
 
 // PUBLIC contractor self sign-in (QR target). Resolves the building, verifies
-// the company's insurance, captures a photo, posts to the public sign-in API
-// (server gate). Queues offline and syncs when signal returns.
+// the company's insurance, recognizes returning contractors by phone, captures
+// a photo, posts to the public sign-in API (server gate). Queues offline and
+// syncs when signal returns.
 
 type Company = { id: string; name: string; status: ComplianceStatus };
 type Building = { id: string; name: string; address: string };
@@ -41,6 +42,7 @@ export default function ContractorSignInPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [queuedOffline, setQueuedOffline] = useState(false);
+  const [recognized, setRecognized] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -128,6 +130,27 @@ export default function ContractorSignInPage() {
     stopCam();
   }
 
+  // Returning-contractor recognition — look up by phone, greet + pre-fill.
+  async function lookupPhone() {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 7) {
+      setRecognized(null);
+      return;
+    }
+    try {
+      const r = await fetch(`/api/public/sign-in/${code}/lookup?phone=${encodeURIComponent(phone)}`);
+      const d = await r.json();
+      if (d.found) {
+        setRecognized(d.name);
+        if (!name.trim()) setName(d.name);
+      } else {
+        setRecognized(null);
+      }
+    } catch {
+      /* ignore lookup failures */
+    }
+  }
+
   const company = companies.find((c) => c.id === companyId);
   const blocked = company?.status === "expired";
 
@@ -160,7 +183,7 @@ export default function ContractorSignInPage() {
       setStep("done");
     } catch {
       // Offline — queue and confirm; it'll sync when signal returns.
-      enqueueSignIn(code, payload);
+      await enqueueSignIn(code, payload);
       setQueuedOffline(true);
       setStep("done");
     } finally {
@@ -359,24 +382,31 @@ export default function ContractorSignInPage() {
       )}
 
       <label className="mt-3 block">
+        <span className="mb-1 block text-xs font-medium text-ink-600">Mobile number</span>
+        <input
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          onBlur={lookupPhone}
+          placeholder="(555) 000-0000"
+          inputMode="tel"
+          autoComplete="tel"
+          className="w-full rounded-xl border border-ink-200 px-3 py-3 text-base"
+        />
+      </label>
+
+      {recognized && (
+        <div className="mt-2 rounded-xl bg-ok/10 px-3 py-2 text-sm text-ok">
+          👋 Welcome back, {recognized}.
+        </div>
+      )}
+
+      <label className="mt-3 block">
         <span className="mb-1 block text-xs font-medium text-ink-600">Your name</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Full name"
           autoComplete="name"
-          className="w-full rounded-xl border border-ink-200 px-3 py-3 text-base"
-        />
-      </label>
-
-      <label className="mt-3 block">
-        <span className="mb-1 block text-xs font-medium text-ink-600">Mobile number</span>
-        <input
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="(555) 000-0000"
-          inputMode="tel"
-          autoComplete="tel"
           className="w-full rounded-xl border border-ink-200 px-3 py-3 text-base"
         />
       </label>

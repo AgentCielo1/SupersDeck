@@ -81,15 +81,23 @@ export default async function ContractorsPage() {
             </Link>
           </p>
         </div>
-        <Link
-          href="/contractors/qr"
-          className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"
-        >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" />
-          </svg>
-          Sign-in QR &amp; link
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/contractors/new"
+            className="inline-flex items-center gap-2 rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
+          >
+            + Add contractor
+          </Link>
+          <Link
+            href="/contractors/qr"
+            className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" />
+            </svg>
+            Sign-in QR &amp; link
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
