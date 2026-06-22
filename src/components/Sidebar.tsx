@@ -58,11 +58,11 @@ export default function Sidebar({ user }: { user: SidebarUser | null }) {
       <div className="border-b border-ink-200 px-5 py-4">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-600 text-white font-semibold">
-            S
+            B
           </div>
           <div>
-            <div className="text-base font-semibold leading-none">SupersDeck</div>
-            <div className="text-xs text-ink-400">Building ops</div>
+            <div className="text-base font-semibold leading-none">BoroDesk</div>
+            <div className="text-xs text-ink-400">NYC building ops</div>
           </div>
         </div>
       </div>

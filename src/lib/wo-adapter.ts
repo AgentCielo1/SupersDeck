@@ -1,7 +1,7 @@
 // =============================================================================
-//  SupersDeck → @workorder/kit adapter
+//  BoroDesk → @workorder/kit adapter
 // =============================================================================
-//  Maps SupersDeck's Supabase `work_orders` row (src/types WorkOrder) to the
+//  Maps BoroDesk's Supabase `work_orders` row (src/types WorkOrder) to the
 //  shared NormalizedWorkOrder contract. App-side glue — the kit never imports
 //  this. (Phase 0: defined, not yet wired into pages.)
 // =============================================================================

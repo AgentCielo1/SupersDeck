@@ -1,5 +1,5 @@
 // =============================================================================
-//  SupersDeck — contractor logbook DB types
+//  BoroDesk — contractor logbook DB types
 // =============================================================================
 //  Mirror supabase/migration-contractors.sql. The shared, display-ready shapes
 //  live in @workorder/kit/contractor; these are the raw Supabase rows.

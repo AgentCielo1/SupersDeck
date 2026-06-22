@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL || "SupersDeck <onboarding@resend.dev>";
+  process.env.RESEND_FROM_EMAIL || "BoroDesk <onboarding@resend.dev>";
 
 function authorized(request: NextRequest): boolean {
   const expected = process.env.CRON_SECRET;
@@ -94,7 +94,7 @@ async function handler(request: NextRequest) {
       certs: data.certs,
     });
 
-    const subject = `SupersDeck monthly report: ${bldgs
+    const subject = `BoroDesk monthly report: ${bldgs
       .map((b) => b.name)
       .join(", ")} — ${data.periodLabel}`;
 

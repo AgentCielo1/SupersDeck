@@ -74,7 +74,7 @@ export default async function OwnerReportPreviewPage() {
               ),
               certs: data.certs,
             });
-            const subject = `SupersDeck monthly report: ${bldgs
+            const subject = `BoroDesk monthly report: ${bldgs
               .map((b) => b.name)
               .join(", ")} — ${data.periodLabel}`;
 

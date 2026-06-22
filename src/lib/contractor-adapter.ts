@@ -1,5 +1,5 @@
 // =============================================================================
-//  SupersDeck → @workorder/kit contractor adapter
+//  BoroDesk → @workorder/kit contractor adapter
 // =============================================================================
 //  Maps a Supabase `contractor_visits` row to the shared ContractorVisit
 //  contract. App-side glue — the kit never imports this. Mirrors wo-adapter.ts.

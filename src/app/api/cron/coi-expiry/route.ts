@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL || "SupersDeck <onboarding@resend.dev>";
+  process.env.RESEND_FROM_EMAIL || "BoroDesk <onboarding@resend.dev>";
 
 function authorized(request: NextRequest): boolean {
   const expected = process.env.CRON_SECRET;
@@ -111,14 +111,14 @@ async function handler(request: NextRequest) {
       .join("");
     const html = `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,sans-serif;background:#f7f7f6;padding:24px">
       <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:24px">
-        <strong>SupersDeck · Contractor compliance</strong>
+        <strong>BoroDesk · Contractor compliance</strong>
         <p>${summary}. Renew before lapse to keep contractors cleared at sign-in.</p>
         <table style="width:100%;border-collapse:collapse;border:1px solid #eee;border-radius:6px;overflow:hidden">
           <thead style="background:#f7f7f6;color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.04em">
             <tr><th style="padding:6px 10px;text-align:left">Company</th><th style="padding:6px 10px;text-align:left">Document</th><th style="padding:6px 10px;text-align:left">Expires</th><th style="padding:6px 10px;text-align:left">Status</th></tr>
           </thead><tbody>${rows}</tbody>
         </table>
-        <p style="margin-top:16px;color:#666;font-size:12px">Manage in SupersDeck at <code>/contractors</code>.</p>
+        <p style="margin-top:16px;color:#666;font-size:12px">Manage in BoroDesk at <code>/contractors</code>.</p>
       </div></body></html>`;
 
     const { data: admins } = await supabase.from("profiles").select("email").eq("role", "admin");
@@ -129,7 +129,7 @@ async function handler(request: NextRequest) {
         const { error: e } = await resend.emails.send({
           from: FROM_EMAIL,
           to,
-          subject: `SupersDeck: ${summary}`,
+          subject: `BoroDesk: ${summary}`,
           html,
         });
         emailed = !e;

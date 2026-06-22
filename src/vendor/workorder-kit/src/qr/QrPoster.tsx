@@ -75,7 +75,7 @@ export interface QrPosterProps {
   building: { name: string; address: string };
   /** Canonical, public intake URL the QR encodes (app resolves this). */
   intakeUrl: string;
-  /** Footer attribution, e.g. "SupersDeck". Hidden if omitted. */
+  /** Footer attribution, e.g. "BoroDesk". Hidden if omitted. */
   poweredBy?: string;
 }
 

@@ -29,7 +29,7 @@ export interface WorkOrderLocation {
   buildingName: string;
   unitLabel?: string;
   /** Free-text area, e.g. "Apartment", "Hallway", "Boiler room". Optional —
-   *  apps without a zone concept (SupersDeck) just leave it undefined. */
+   *  apps without a zone concept (BoroDesk) just leave it undefined. */
   zone?: string;
   zoneDetail?: string;
   address?: string;

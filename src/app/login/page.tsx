@@ -68,11 +68,11 @@ export default function LoginPage() {
       <div className="rounded-xl2 border border-ink-200 bg-white p-6">
         <div className="mb-5 flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-md bg-brand-600 text-base font-semibold text-white">
-            S
+            B
           </div>
           <div>
-            <div className="text-base font-semibold leading-none">SupersDeck</div>
-            <div className="text-xs text-ink-400">Building ops</div>
+            <div className="text-base font-semibold leading-none">BoroDesk</div>
+            <div className="text-xs text-ink-400">NYC building ops</div>
           </div>
         </div>
 

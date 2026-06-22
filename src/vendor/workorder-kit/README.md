@@ -1,7 +1,7 @@
 # @workorder/kit
 
 Backend-agnostic work-order building blocks shared across the app suite
-(SupersDeck, Forest Hills Intake, …). One source of truth for the work-order
+(BoroDesk, Forest Hills Intake, …). One source of truth for the work-order
 **contract**, the **print sheet**, the multilingual **speak-or-type intake**,
 **translate-to-English**, **voice capture**, and the **QR poster**.
 
