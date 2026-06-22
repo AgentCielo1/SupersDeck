@@ -13,8 +13,13 @@ export default function QrPosterClient({ buildings }: { buildings: B[] }) {
   const [sel, setSel] = useState(buildings[0]?.id ?? "");
   const [origin, setOrigin] = useState("");
   const [qr, setQr] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [canShare, setCanShare] = useState(false);
 
   useEffect(() => setOrigin(window.location.origin), []);
+  useEffect(() => {
+    setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
 
   const url = sel && origin ? `${origin}/sign-in/${sel}` : "";
   useEffect(() => {
@@ -28,6 +33,28 @@ export default function QrPosterClient({ buildings }: { buildings: B[] }) {
   }, [url]);
 
   const b = buildings.find((x) => x.id === sel);
+  const smsBody = b
+    ? `Sign in before starting work at ${b.name}: ${url}`
+    : url;
+  const smsHref = `sms:?&body=${encodeURIComponent(smsBody)}`;
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked — the link is still visible on the poster */
+    }
+  }
+
+  async function share() {
+    try {
+      await navigator.share({ title: "Contractor sign-in", text: smsBody, url });
+    } catch {
+      /* user dismissed the share sheet */
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -62,6 +89,34 @@ export default function QrPosterClient({ buildings }: { buildings: B[] }) {
           Print poster
         </button>
       </div>
+
+      {url && (
+        <div className="no-print flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-ink-400">Send to a contractor:</span>
+          <button
+            type="button"
+            onClick={copyLink}
+            className="rounded-md border border-ink-200 px-3 py-1.5 font-medium text-ink-600 hover:bg-ink-100"
+          >
+            {copied ? "Copied ✓" : "Copy link"}
+          </button>
+          <a
+            href={smsHref}
+            className="rounded-md border border-ink-200 px-3 py-1.5 font-medium text-ink-600 hover:bg-ink-100"
+          >
+            Text link
+          </a>
+          {canShare && (
+            <button
+              type="button"
+              onClick={share}
+              className="rounded-md border border-ink-200 px-3 py-1.5 font-medium text-ink-600 hover:bg-ink-100"
+            >
+              Share…
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="mx-auto max-w-[8.5in] rounded-xl border border-ink-200 bg-white p-10 text-center text-black shadow-sm">
         <div className="text-xs uppercase tracking-widest text-ink-400">{b?.name ?? "—"}</div>
