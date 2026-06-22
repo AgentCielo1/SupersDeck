@@ -77,6 +77,16 @@ export async function POST(
   const building_id = params.buildingCode;
   const gateEnforced = body.gate_enforced ?? true;
 
+  // Resolve the building's org so service-role inserts satisfy org_id (NOT NULL).
+  const { data: building } = await supabase
+    .from("buildings")
+    .select("id, org_id")
+    .eq("id", building_id)
+    .maybeSingle();
+  if (!building)
+    return NextResponse.json({ error: "Building not found" }, { status: 404 });
+  const org_id = (building as any).org_id as string;
+
   let status: ComplianceStatus = "missing";
   if (body.company_id) {
     const { data: docs } = await supabase
@@ -89,6 +99,7 @@ export async function POST(
   if (isBlocked(status, gateEnforced)) {
     await supabase.from("contractor_blocked_attempts").insert({
       id: `blk-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      org_id,
       company_id: body.company_id ?? null,
       inline_name: body.inline_name ?? null,
       building_id,
@@ -121,6 +132,7 @@ export async function POST(
 
   const row = {
     id: visitId,
+    org_id,
     contractor_id: body.contractor_id ?? null,
     inline_name: body.inline_name ?? null,
     phone: body.phone ?? null,
