@@ -14,6 +14,7 @@ import {
 import { generateComplianceItems } from "@/lib/compliance";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import type { Task } from "@/types/tasks";
 
 // Reads go through the session-aware server client so per-role RLS sees the
 // signed-in user as `authenticated` (not anon, which would return []).
@@ -204,6 +205,20 @@ async function fetchComplianceItems(): Promise<ComplianceItem[]> {
   return generateComplianceItems(buildings, completed);
 }
 
+async function fetchTasks(): Promise<Task[]> {
+  const s = getSupabase();
+  if (!s) return [];
+  const { data, error } = await s
+    .from("tasks")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("[db] fetchTasks:", error.message);
+    return []; // table may not exist yet (pre-migration) — non-fatal
+  }
+  return (data ?? []) as Task[];
+}
+
 // Sensitive rent figures live in their own RLS-locked table (admin-only).
 // Reads go through the session client, so RLS already returns zero rows to
 // non-admins; a missing table or denied read is non-fatal (we just show none).
@@ -243,6 +258,7 @@ export const db = {
   units: fetchUnits,
   unitsForBuilding: fetchUnitsForBuilding,
   unitRents: fetchUnitRents,
+  tasks: fetchTasks,
   workOrders: fetchWorkOrders,
   workOrder: fetchWorkOrder,
   myVendors: fetchMyVendors,
