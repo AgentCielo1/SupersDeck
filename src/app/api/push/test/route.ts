@@ -15,7 +15,7 @@ export async function GET() {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
   const result = await pushToUsers([me.id], {
-    title: "SupersDeck test",
+    title: "BoroDesk test",
     body: "Push notifications are working. You'll get pings like this for new work orders.",
     url: "/",
     tag: "supersdeck-test",

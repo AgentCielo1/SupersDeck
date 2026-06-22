@@ -213,7 +213,7 @@ export async function PATCH(
 
         const fromEmail =
           process.env.RESEND_FROM_EMAIL ||
-          "SupersDeck <onboarding@resend.dev>";
+          "BoroDesk <onboarding@resend.dev>";
         const replyTo = me?.email ?? undefined;
         const subject = `[${data.priority.toUpperCase()}] ${data.ticket_number}: ${data.title}`;
 
@@ -309,7 +309,7 @@ function renderVendorEmail(input: {
   <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:24px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <div style="width:32px;height:32px;border-radius:6px;background:#1a3a8c;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600">S</div>
-      <strong>SupersDeck · Work order assignment</strong>
+      <strong>BoroDesk · Work order assignment</strong>
     </div>
 
     <p style="margin:0 0 16px 0">Hi ${vendor.name.split(" ")[0]},</p>

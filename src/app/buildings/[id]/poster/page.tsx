@@ -71,7 +71,7 @@ export default function PosterPage() {
       <QrPoster
         building={{ name: building.name, address: building.address }}
         intakeUrl={`${origin}/intake/${buildingId}`}
-        poweredBy="SupersDeck"
+        poweredBy="BoroDesk"
       />
     </>
   );

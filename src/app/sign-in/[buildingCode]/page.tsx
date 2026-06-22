@@ -409,7 +409,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-ink-50">
       <div className="mx-auto max-w-md px-5 py-10">
         <div className="rounded-2xl border border-ink-200 bg-white p-6 shadow-sm">{children}</div>
-        <p className="mt-4 text-center text-[11px] text-ink-400">Powered by GateLog · SupersDeck</p>
+        <p className="mt-4 text-center text-[11px] text-ink-400">Powered by GateLog · BoroDesk</p>
       </div>
     </div>
   );

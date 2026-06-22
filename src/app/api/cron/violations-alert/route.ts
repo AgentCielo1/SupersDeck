@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL || "SupersDeck <onboarding@resend.dev>";
+  process.env.RESEND_FROM_EMAIL || "BoroDesk <onboarding@resend.dev>";
 
 function authorized(request: NextRequest): boolean {
   const expected = process.env.CRON_SECRET;
@@ -125,7 +125,7 @@ async function handler(request: NextRequest) {
   const classCount = (cls: string) =>
     newViolations.filter((v) => v.class === cls).length;
 
-  const subject = `SupersDeck: ${newViolations.length} new HPD violation${
+  const subject = `BoroDesk: ${newViolations.length} new HPD violation${
     newViolations.length === 1 ? "" : "s"
   } overnight${classCount("C") > 0 ? ` · ${classCount("C")} Class C` : ""}`;
 
@@ -220,7 +220,7 @@ function renderHtml({
   <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:24px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <div style="width:32px;height:32px;border-radius:6px;background:#1a3a8c;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600">S</div>
-      <strong>SupersDeck · Morning HPD digest</strong>
+      <strong>BoroDesk · Morning HPD digest</strong>
     </div>
 
     <p>New HPD violations posted on your buildings overnight:</p>
@@ -235,7 +235,7 @@ function renderHtml({
     <p style="margin-top:24px;color:#666;font-size:12px">
       View the full list and cure deadlines in
       <a href="https://hpdonline.hpdnyc.org/HPDonline/" style="color:#1a3a8c">HPD Online</a>
-      or in SupersDeck at <code>/violations</code>.
+      or in BoroDesk at <code>/violations</code>.
     </p>
   </div>
 </body></html>`;

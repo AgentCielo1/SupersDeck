@@ -6,11 +6,11 @@ import InstallPrompt from "@/components/InstallPrompt";
 import AppShell from "@/components/AppShell";
 import PushManagerClient from "@/components/PushManagerClient";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
+import { BRAND } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "SupersDeck",
-  description:
-    "Compliance, work orders, and vendor management for residential building superintendents.",
+  title: BRAND.name,
+  description: BRAND.description,
   manifest: "/manifest.json",
 };
 

@@ -1,5 +1,5 @@
 // =============================================================================
-//  SupersDeck — shared types
+//  BoroDesk — shared types
 // =============================================================================
 //  These mirror the SQL schema in `supabase/schema.sql`. Keep the two in sync.
 //  In phase 1 the app reads from seed arrays typed against these interfaces.

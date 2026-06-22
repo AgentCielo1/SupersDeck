@@ -1,4 +1,4 @@
-# SupersDeck
+# BoroDesk
 
 Cross-platform (web + installable PWA) building-ops app built for residential
 building superintendents. Designed around the day-1 reality of someone walking

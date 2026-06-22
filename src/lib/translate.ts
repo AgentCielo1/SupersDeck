@@ -1,6 +1,6 @@
-// Thin SupersDeck wrapper over the shared @workorder/kit translator. Keeps the
+// Thin BoroDesk wrapper over the shared @workorder/kit translator. Keeps the
 // existing call sites unchanged while delegating to the kit (one source of
-// truth) and injecting SupersDeck's ANTHROPIC_API_KEY.
+// truth) and injecting BoroDesk's ANTHROPIC_API_KEY.
 import {
   translateToEnglish as kitTranslateToEnglish,
   type TranslationResult,

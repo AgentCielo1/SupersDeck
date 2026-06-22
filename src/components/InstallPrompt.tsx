@@ -65,7 +65,7 @@ export default function InstallPrompt() {
             S
           </div>
           <div className="flex-1">
-            <div className="text-sm font-semibold">Install SupersDeck</div>
+            <div className="text-sm font-semibold">Install BoroDesk</div>
             <div className="mt-0.5 text-xs text-ink-600">
               Adds to your home screen, opens like a normal app.
             </div>

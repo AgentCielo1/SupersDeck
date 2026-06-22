@@ -1,7 +1,7 @@
 {
-  "name": "SupersDeck — Building Ops",
-  "short_name": "SupersDeck",
-  "description": "Compliance, work orders, and vendor management for residential building superintendents.",
+  "name": "BoroDesk — NYC Building Ops",
+  "short_name": "BoroDesk",
+  "description": "Compliance, work orders, superintendent operations, and contractor sign-in for NYC property managers.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f7f7f6",

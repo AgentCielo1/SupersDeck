@@ -12,7 +12,7 @@ import { publicBaseUrl } from "@/lib/format";
 
 // PUBLIC tenant intake (QR target). The multilingual speak-or-type form lives
 // in @workorder/kit; this page resolves the building + posts to the existing
-// SupersDeck work-orders API (which auto-translates to English server-side).
+// BoroDesk work-orders API (which auto-translates to English server-side).
 export default function TenantIntakePage() {
   const params = useParams<{ buildingCode: string }>();
   const buildingId = params?.buildingCode ?? "";

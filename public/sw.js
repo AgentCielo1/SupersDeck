@@ -1,5 +1,5 @@
 // =============================================================================
-// SupersDeck — service worker for Web Push notifications
+// BoroDesk — service worker for Web Push notifications
 // =============================================================================
 // Bare-bones. Just enough to:
 //   • receive push events from the backend
@@ -24,10 +24,10 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data ? event.data.json() : {};
   } catch {
-    payload = { title: "SupersDeck", body: event.data ? event.data.text() : "" };
+    payload = { title: "BoroDesk", body: event.data ? event.data.text() : "" };
   }
 
-  const title = payload.title || "SupersDeck";
+  const title = payload.title || "BoroDesk";
   const options = {
     body: payload.body || "",
     icon: "/icon.svg",
@@ -51,7 +51,7 @@ self.addEventListener("notificationclick", (event) => {
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((windowClients) => {
-        // If there's already a SupersDeck window open, focus it and nav.
+        // If there's already a BoroDesk window open, focus it and nav.
         for (const client of windowClients) {
           if ("focus" in client) {
             client.navigate(targetUrl);

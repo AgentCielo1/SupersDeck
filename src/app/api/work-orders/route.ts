@@ -51,7 +51,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL || "SupersDeck <onboarding@resend.dev>";
+  process.env.RESEND_FROM_EMAIL || "BoroDesk <onboarding@resend.dev>";
 
 function genTicketNumber(): string {
   // WO-{millis-base36} — short, sortable, ~unique enough for one building's
@@ -227,7 +227,7 @@ async function sendTenantConfirmation(
   <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:24px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <div style="width:32px;height:32px;border-radius:6px;background:#1a3a8c;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600">S</div>
-      <strong>SupersDeck</strong>
+      <strong>BoroDesk</strong>
     </div>
 
     <p style="margin:0 0 12px 0">Hi ${wo.reporter_name.split(" ")[0]},</p>
@@ -256,7 +256,7 @@ async function sendTenantConfirmation(
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL || "SupersDeck <onboarding@resend.dev>",
+    from: process.env.RESEND_FROM_EMAIL || "BoroDesk <onboarding@resend.dev>",
     to: [wo.reporter_email],
     subject: `Work order received: ${wo.ticket_number}`,
     html,
@@ -329,7 +329,7 @@ function renderNewWoEmail(input: {
   <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:12px;padding:24px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <div style="width:32px;height:32px;border-radius:6px;background:#1a3a8c;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:600">S</div>
-      <strong>SupersDeck · New work order</strong>
+      <strong>BoroDesk · New work order</strong>
     </div>
 
     <h2 style="margin:0 0 8px 0;font-size:18px">${wo.title_en || wo.title}</h2>
@@ -371,7 +371,7 @@ function renderNewWoEmail(input: {
 
     ${
       link
-        ? `<p style="margin-top:20px"><a href="${link}" style="display:inline-block;background:#1a3a8c;color:#fff;text-decoration:none;font-size:14px;font-weight:500;padding:10px 16px;border-radius:6px">Open in SupersDeck</a></p>`
+        ? `<p style="margin-top:20px"><a href="${link}" style="display:inline-block;background:#1a3a8c;color:#fff;text-decoration:none;font-size:14px;font-weight:500;padding:10px 16px;border-radius:6px">Open in BoroDesk</a></p>`
         : ""
     }
 

@@ -102,7 +102,7 @@ export default async function TrackWorkOrderPage({
         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-600 text-sm font-semibold text-white">
           S
         </div>
-        <div className="text-sm font-semibold">SupersDeck</div>
+        <div className="text-sm font-semibold">BoroDesk</div>
       </div>
 
       <h1 className="text-xl font-semibold">Ticket {wo.ticket_number}</h1>
