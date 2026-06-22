@@ -11,6 +11,7 @@ import {
   type TaskFile,
 } from "@/types/tasks";
 import TaskCard from "./TaskCard";
+import VoiceNoteRecorder from "./VoiceNoteRecorder";
 
 type Ref = { id: string; name: string };
 
@@ -32,6 +33,8 @@ export default function BacklogBoard({
   const [folder, setFolder] = useState("General");
   const [buildingId, setBuildingId] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [voice, setVoice] = useState<Blob | null>(null);
+  const [recorderKey, setRecorderKey] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -56,6 +59,19 @@ export default function BacklogBoard({
         if (error) throw new Error(`File upload failed: ${error.message}`);
         uploaded.push({ path, name: f.name, type: f.type });
       }
+      if (voice) {
+        const ext = /mp4|mpeg|aac/.test(voice.type)
+          ? "m4a"
+          : voice.type.includes("ogg")
+          ? "ogg"
+          : "webm";
+        const vpath = `${crypto.randomUUID()}-voice-note.${ext}`;
+        const { error } = await sb.storage
+          .from(TASK_BUCKET)
+          .upload(vpath, voice, { contentType: voice.type || "audio/webm", upsert: false });
+        if (error) throw new Error(`Voice note upload failed: ${error.message}`);
+        uploaded.push({ path: vpath, name: `Voice note.${ext}`, type: voice.type || "audio/webm" });
+      }
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,6 +88,8 @@ export default function BacklogBoard({
       }
       setTitle("");
       setFiles([]);
+      setVoice(null);
+      setRecorderKey((k) => k + 1);
       if (fileRef.current) fileRef.current.value = "";
       router.refresh();
     } catch (e) {
@@ -162,6 +180,12 @@ export default function BacklogBoard({
               onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
               className="block w-56 text-xs text-ink-600 file:mr-2 file:rounded-md file:border-0 file:bg-ink-100 file:px-3 file:py-2 file:text-xs file:font-medium"
             />
+          </label>
+          <label>
+            <span className="mb-1 block text-xs font-medium text-ink-400">
+              Voice note
+            </span>
+            <VoiceNoteRecorder key={recorderKey} onChange={setVoice} />
           </label>
           <button
             type="submit"

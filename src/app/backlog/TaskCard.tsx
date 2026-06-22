@@ -143,6 +143,23 @@ export default function TaskCard({
             <div className="mt-2 flex flex-wrap gap-2">
               {task.files.map((f) => {
                 const url = urlByPath[f.path];
+                const isAudio = (f.type || "").startsWith("audio/");
+                if (isAudio) {
+                  return url ? (
+                    <span key={f.path} className="inline-flex items-center gap-1">
+                      <span className="text-xs text-ink-400">🎙</span>
+                      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                      <audio src={url} controls className="h-8 max-w-[200px]" />
+                    </span>
+                  ) : (
+                    <span
+                      key={f.path}
+                      className="rounded border border-ink-200 bg-ink-50 px-2 py-0.5 text-xs text-ink-400"
+                    >
+                      🎙 {f.name}
+                    </span>
+                  );
+                }
                 return url ? (
                   <a
                     key={f.path}
