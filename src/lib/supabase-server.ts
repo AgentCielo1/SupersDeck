@@ -50,12 +50,13 @@ export function createSupabaseServerClient() {
 // Re-export so callers don't need to know both file paths.
 export { getServerSupabase } from "@/lib/supabase";
 
-/** Returns the current user's profile + role, or null if signed out. */
+/** Returns the current user's profile + role + org, or null if signed out. */
 export async function getCurrentUserProfile(): Promise<{
   id: string;
   email: string;
   full_name: string | null;
   role: string;
+  org_id: string;
 } | null> {
   const supabase = createSupabaseServerClient();
   if (!supabase) return null;
@@ -67,7 +68,7 @@ export async function getCurrentUserProfile(): Promise<{
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, email, full_name, role")
+    .select("id, email, full_name, role, org_id")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -78,5 +79,6 @@ export async function getCurrentUserProfile(): Promise<{
     email: user.email ?? "",
     full_name: null,
     role: "super",
+    org_id: "org-default",
   };
 }

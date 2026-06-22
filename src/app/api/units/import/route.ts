@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 // =============================================================================
 //  POST /api/units/import
@@ -28,7 +28,7 @@ interface UnitRow {
 }
 
 export async function POST(request: Request) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       {

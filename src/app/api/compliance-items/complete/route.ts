@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { complianceTemplateById } from "@/data/compliance-templates";
 
 // =============================================================================
@@ -21,7 +21,7 @@ import { complianceTemplateById } from "@/data/compliance-templates";
 // =============================================================================
 
 export async function POST(request: Request) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },

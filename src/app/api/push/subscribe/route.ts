@@ -45,6 +45,7 @@ export async function POST(request: Request) {
 
   const row = {
     id: `push-${me.id}-${Date.now().toString(36)}`,
+    org_id: me.org_id,
     user_id: me.id,
     endpoint: String(endpoint),
     p256dh: String(p256dh),

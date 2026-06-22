@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import {
   coiStatus,
   isBlocked,
@@ -21,7 +21,7 @@ import { findOrCreateContractorByPhone } from "@/lib/contractor-recognition";
 // =============================================================================
 
 export async function GET(request: Request) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) return NextResponse.json([]);
 
   const { searchParams } = new URL(request.url);
@@ -55,7 +55,7 @@ function rowToDoc(d: ComplianceDocumentRow): ComplianceDocument {
 }
 
 export async function POST(request: Request) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
   }

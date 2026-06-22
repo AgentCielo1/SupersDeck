@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 // =============================================================================
 //  POST /api/buildings/import — bulk create/update buildings from a CSV upload
@@ -81,7 +81,7 @@ function normalizeBorough(v: unknown): Borough | null {
 }
 
 export async function POST(request: Request) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       {

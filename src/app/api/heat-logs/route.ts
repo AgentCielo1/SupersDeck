@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 // =============================================================================
 //  POST /api/heat-logs — record a heat / hot-water reading
@@ -25,7 +25,7 @@ import { getServerSupabase } from "@/lib/supabase";
 // =============================================================================
 
 export async function POST(request: Request) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },
