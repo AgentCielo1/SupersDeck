@@ -11,7 +11,7 @@ import {
   type TaskFile,
 } from "@/types/tasks";
 import TaskCard from "./TaskCard";
-import VoiceNoteRecorder from "./VoiceNoteRecorder";
+import VoiceNoteRecorder from "@/components/VoiceNoteRecorder";
 
 type Ref = { id: string; name: string };
 

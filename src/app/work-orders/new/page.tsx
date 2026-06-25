@@ -3,8 +3,14 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
+import VoiceNoteRecorder from "@/components/VoiceNoteRecorder";
 import { useVoiceCapture } from "@workorder/kit/intake/useVoiceCapture";
+import type { LangCode } from "@workorder/kit/intake/strings";
+import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { SAMPLE_BUILDINGS } from "@/data/sample-data";
+
+// Live private bucket for WO photos + attachments (see PHOTO_BUCKET in lib/storage).
+const WO_BUCKET = "work-orders";
 
 const CATEGORIES = [
   "no-heat",
@@ -31,9 +37,13 @@ export default function NewWorkOrderPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [voiceField, setVoiceField] = useState<null | "title" | "description">(null);
+  const [voiceLang, setVoiceLang] = useState<LangCode>("en");
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [memo, setMemo] = useState<Blob | null>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
   const baseRef = useRef("");
 
-  const voice = useVoiceCapture("en", (text) => {
+  const voice = useVoiceCapture(voiceLang, (text) => {
     const combined = (baseRef.current ? baseRef.current.trim() + " " : "") + text;
     if (voiceField === "title") setTitle(combined);
     else if (voiceField === "description") setDescription(combined);
@@ -67,21 +77,55 @@ export default function NewWorkOrderPage() {
           e.preventDefault();
           setSubmitting(true);
           setError(null);
-          const fd = new FormData(e.currentTarget);
-          const body = Object.fromEntries(fd.entries());
-          const res = await fetch("/api/work-orders", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setError(data.error ?? "Save failed");
+          try {
+            const fd = new FormData(e.currentTarget);
+            const body: Record<string, unknown> = Object.fromEntries(fd.entries());
+
+            // Upload photos + voice memo to the WO bucket; store their paths in
+            // the work order's photos[] (rendered as images/audio on the detail).
+            const sb = getBrowserSupabase();
+            const paths: string[] = [];
+            for (const f of photos) {
+              const safe = f.name.replace(/[^\w.\-]+/g, "_");
+              const path = `wo/${crypto.randomUUID()}-${safe}`;
+              const { error: upErr } = await sb.storage
+                .from(WO_BUCKET)
+                .upload(path, f, { upsert: false });
+              if (upErr) throw new Error(`Photo upload failed: ${upErr.message}`);
+              paths.push(path);
+            }
+            if (memo) {
+              const ext = /mp4|mpeg|aac/.test(memo.type)
+                ? "m4a"
+                : memo.type.includes("ogg")
+                ? "ogg"
+                : "webm";
+              const path = `wo/${crypto.randomUUID()}-voice-note.${ext}`;
+              const { error: upErr } = await sb.storage
+                .from(WO_BUCKET)
+                .upload(path, memo, { contentType: memo.type || "audio/webm" });
+              if (upErr) throw new Error(`Voice memo upload failed: ${upErr.message}`);
+              paths.push(path);
+            }
+            if (paths.length) body.photos = paths;
+
+            const res = await fetch("/api/work-orders", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data.error ?? "Save failed");
+              setSubmitting(false);
+              return;
+            }
+            router.push(`/work-orders/${data.id}`);
+            router.refresh();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Save failed");
             setSubmitting(false);
-            return;
           }
-          router.push(`/work-orders/${data.id}`);
-          router.refresh();
         }}
         className="space-y-4 rounded-xl2 border border-ink-200 bg-white p-5"
       >
@@ -97,6 +141,20 @@ export default function NewWorkOrderPage() {
         <Field label="Unit (leave blank if common area)">
           <input name="unit_label" placeholder="e.g. 7C" className={fieldClass} />
         </Field>
+        {voice.supported && (
+          <Field label="🎤 Dictation language — spoken text is auto-translated to English on save">
+            <select
+              value={voiceLang}
+              onChange={(e) => setVoiceLang(e.target.value as LangCode)}
+              className={fieldClass}
+            >
+              <option value="en">English</option>
+              <option value="es">Español</option>
+              <option value="zh">中文</option>
+              <option value="ru">Русский</option>
+            </select>
+          </Field>
+        )}
         <label className="block">
           <span className="mb-1 flex items-center justify-between text-xs font-medium text-ink-600">
             Title
@@ -142,6 +200,32 @@ export default function NewWorkOrderPage() {
             className={fieldClass}
           />
         </label>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-ink-600">
+              Photos
+            </span>
+            <input
+              ref={photoRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => setPhotos(Array.from(e.target.files ?? []))}
+              className="block w-full text-xs text-ink-600 file:mr-2 file:rounded-md file:border-0 file:bg-ink-100 file:px-3 file:py-2 file:text-xs file:font-medium"
+            />
+            {photos.length > 0 && (
+              <span className="mt-1 block text-xs text-ink-400">
+                {photos.length} photo(s)
+              </span>
+            )}
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-ink-600">
+              Voice memo
+            </span>
+            <VoiceNoteRecorder onChange={setMemo} />
+          </label>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Category">
             <select name="category" defaultValue="other" className={fieldClass}>

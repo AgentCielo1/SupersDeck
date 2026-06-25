@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 
 // =============================================================================
-//  VoiceNoteRecorder — record a short audio note for a backlog task
+//  VoiceNoteRecorder — record a short audio note (backlog + work orders)
 // =============================================================================
 //  Uses MediaRecorder (mic). On stop it hands the recorded Blob up via onChange;
-//  the parent uploads it to the task-files bucket on submit, so a voice note is
-//  just another attachment (type audio/*) the card plays back. Secure-context
+//  the parent uploads it to a private bucket on submit, so a voice note is just
+//  another attachment (type audio/*) the card/detail plays back. Secure-context
 //  only (HTTPS / localhost); hidden where MediaRecorder is unavailable.
 // =============================================================================
 
