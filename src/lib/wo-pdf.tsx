@@ -82,9 +82,25 @@ function Meta({ label, value }: { label: string; value: string }) {
 
 function WorkOrderPdfDoc({ wo }: { wo: NormalizedWorkOrder }) {
   const sig = wo.completion?.signatureDataUrl;
+
+  // Auto-condense to a single page: the only variable-height content is the
+  // complaint + work-performed text, so scale the body font down as that grows
+  // and shrink the reserved write-in space. `wrap={false}` is the backstop so
+  // react-pdf never spills onto a second page.
+  const longLen =
+    (wo.description?.length ?? 0) +
+    (wo.completion?.notes?.length ?? 0) +
+    (wo.original?.description?.length ?? 0) +
+    (wo.original?.title?.length ?? 0);
+  const f =
+    longLen > 2400 ? 0.65 : longLen > 1600 ? 0.75 : longLen > 900 ? 0.85 : 1;
+  const bodyFont = { fontSize: 9 * f, lineHeight: 1.3 };
+  const reserve = longLen > 700 ? 16 : 64; // blank write-in space when notes are short
+
   return (
     <Document title={`Work order ${wo.referenceNumber}`}>
       <Page size="LETTER" style={st.page}>
+       <View wrap={false}>
         <View style={st.header}>
           <View>
             <Text style={st.orgName}>{wo.org.name}</Text>
@@ -112,8 +128,8 @@ function WorkOrderPdfDoc({ wo }: { wo: NormalizedWorkOrder }) {
 
         <View style={st.section}>
           <Text style={st.sectionH}>Complaint / Request</Text>
-          <Text style={st.title}>{wo.title}</Text>
-          {wo.description ? <Text style={st.body}>{wo.description}</Text> : null}
+          <Text style={[st.title, bodyFont]}>{wo.title}</Text>
+          {wo.description ? <Text style={[st.body, bodyFont]}>{wo.description}</Text> : null}
           {wo.original ? (
             <View style={st.orig}>
               <Text style={st.origLabel}>As submitted ({wo.original.language})</Text>
@@ -125,8 +141,8 @@ function WorkOrderPdfDoc({ wo }: { wo: NormalizedWorkOrder }) {
 
         <View style={st.section}>
           <Text style={st.sectionH}>Work Performed / Completion Notes</Text>
-          <View style={st.workArea}>
-            <Text style={st.body}>{wo.completion?.notes ?? ""}</Text>
+          <View style={[st.workArea, { minHeight: reserve }]}>
+            <Text style={[st.body, bodyFont]}>{wo.completion?.notes ?? ""}</Text>
           </View>
         </View>
 
@@ -176,6 +192,7 @@ function WorkOrderPdfDoc({ wo }: { wo: NormalizedWorkOrder }) {
             <Text style={st.sigLabel}>Date</Text>
           </View>
         </View>
+       </View>
       </Page>
     </Document>
   );
