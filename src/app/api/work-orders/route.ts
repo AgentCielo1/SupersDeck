@@ -155,6 +155,11 @@ export async function POST(request: Request) {
     reporter_email: body.reporter_email ? String(body.reporter_email).trim() : null,
     reported_at: new Date().toISOString(),
     hpd_risk: HPD_RISK_CATEGORIES.has(category),
+    photos: Array.isArray(body.photos)
+      ? (body.photos as unknown[])
+          .filter((p): p is string => typeof p === "string")
+          .slice(0, 12)
+      : [],
   };
 
   const { data, error } = await supabase

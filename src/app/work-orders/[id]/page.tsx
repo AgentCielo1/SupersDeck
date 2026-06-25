@@ -137,24 +137,36 @@ export default async function WorkOrderDetailPage({
             {photoUrls.length > 0 && (
               <div className="mt-4">
                 <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-400">
-                  Photos ({photoUrls.length})
+                  Photos &amp; voice ({photoUrls.length})
                 </div>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                  {photoUrls.map((url, i) => (
-                    <a
-                      key={i}
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block"
-                    >
-                      <img
-                        src={url}
-                        alt={`Photo ${i + 1}`}
-                        className="aspect-square w-full rounded-md border border-ink-200 object-cover hover:opacity-80"
-                      />
-                    </a>
-                  ))}
+                  {photoUrls.map((url, i) => {
+                    const src = (wo.photos ?? [])[i] ?? "";
+                    const isAudio = /\.(webm|m4a|ogg|mp3|aac)(\?|$)/i.test(src);
+                    if (isAudio) {
+                      return (
+                        <div key={i} className="col-span-3 sm:col-span-5">
+                          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                          <audio src={url} controls className="w-full" />
+                        </div>
+                      );
+                    }
+                    return (
+                      <a
+                        key={i}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block"
+                      >
+                        <img
+                          src={url}
+                          alt={`Photo ${i + 1}`}
+                          className="aspect-square w-full rounded-md border border-ink-200 object-cover hover:opacity-80"
+                        />
+                      </a>
+                    );
+                  })}
                 </div>
               </div>
             )}

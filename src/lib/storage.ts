@@ -13,7 +13,9 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 //  new uploads go to Storage.
 // =============================================================================
 
-export const PHOTO_BUCKET = "wo-photos";
+// Live private bucket for work-order photos + attachments. (Was "wo-photos" in
+// code, but the actual Supabase bucket is "work-orders" — fixing the mismatch.)
+export const PHOTO_BUCKET = "work-orders";
 export { TASK_BUCKET } from "@/types/tasks";
 
 export function isStoragePath(s: string): boolean {
