@@ -1,11 +1,19 @@
-import {
+// Demo mode (NEXT_PUBLIC_DEMO=1) serves a fully fictional "Maple Property
+// Management" seed instead of the real bundled sample data, so portfolio
+// recordings never show real building/tenant info. Paired with running on
+// empty Supabase env (the `supersdeck-demo` launch config), nothing can reach
+// the real database. When the flag is off, behavior is unchanged.
+import * as realSeed from "@/data/sample-data";
+import * as demoSeed from "@/data/sample-data-demo";
+const seed = process.env.NEXT_PUBLIC_DEMO === "1" ? demoSeed : realSeed;
+const {
   SAMPLE_BUILDINGS,
   SAMPLE_UNITS,
   SAMPLE_WORK_ORDERS,
   SAMPLE_MY_VENDORS,
   SAMPLE_CERTIFICATIONS,
   SAMPLE_HEAT_LOGS,
-} from "@/data/sample-data";
+} = seed;
 import { COMPLIANCE_TEMPLATES } from "@/data/compliance-templates";
 import {
   VENDOR_CATEGORIES,
@@ -15,6 +23,7 @@ import { generateComplianceItems } from "@/lib/compliance";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import type { Task } from "@/types/tasks";
+import type { Document } from "@/types/documents";
 
 // Reads go through the session-aware server client so per-role RLS sees the
 // signed-in user as `authenticated` (not anon, which would return []).
@@ -245,6 +254,20 @@ async function fetchTasks(): Promise<Task[]> {
   return (data ?? []) as Task[];
 }
 
+async function fetchDocuments(): Promise<Document[]> {
+  const s = getSupabase();
+  if (!s) return [];
+  const { data, error } = await s
+    .from("documents")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("[db] fetchDocuments:", error.message);
+    return []; // table may not exist yet (pre-migration) — non-fatal
+  }
+  return (data ?? []) as Document[];
+}
+
 // =============================================================================
 //  Public surface
 // =============================================================================
@@ -259,6 +282,7 @@ export const db = {
   unitsForBuilding: fetchUnitsForBuilding,
   unitRents: fetchUnitRents,
   tasks: fetchTasks,
+  documents: fetchDocuments,
   workOrders: fetchWorkOrders,
   workOrder: fetchWorkOrder,
   myVendors: fetchMyVendors,
