@@ -62,3 +62,19 @@ body {
 .rents-on .rent-mask {
   display: none;
 }
+
+/* ===========================================================================
+ *  Work-order "Fit to one page" — PrintControls toggles `.condense` on
+ *  #wo-print-sheet. Collapses the blank write-in reserves + tightens the
+ *  signature lines and type so a long work order still prints on one sheet.
+ *  Applies on screen (so you can preview) and in print.
+ * ======================================================================== */
+#wo-print-sheet.condense {
+  font-size: 92%;
+}
+#wo-print-sheet.condense .wo-reserve {
+  min-height: 0 !important;
+}
+#wo-print-sheet.condense .wo-sigline {
+  height: 2.75rem !important;
+}
