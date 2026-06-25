@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
+import { useVoiceCapture } from "@workorder/kit/intake/useVoiceCapture";
 import { SAMPLE_BUILDINGS } from "@/data/sample-data";
 
 const CATEGORIES = [
@@ -25,6 +26,35 @@ export default function NewWorkOrderPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Speak-or-type: dictate into Title or Description via the mic (Web Speech).
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [voiceField, setVoiceField] = useState<null | "title" | "description">(null);
+  const baseRef = useRef("");
+
+  const voice = useVoiceCapture("en", (text) => {
+    const combined = (baseRef.current ? baseRef.current.trim() + " " : "") + text;
+    if (voiceField === "title") setTitle(combined);
+    else if (voiceField === "description") setDescription(combined);
+  });
+
+  function toggleVoice(field: "title" | "description") {
+    if (voice.listening && voiceField === field) {
+      voice.stop();
+      setVoiceField(null);
+      return;
+    }
+    if (voice.listening) voice.stop();
+    baseRef.current = field === "title" ? title : description;
+    setVoiceField(field);
+    voice.start();
+  }
+
+  const micClass = (on: boolean) =>
+    `inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
+      on ? "bg-danger-50 text-danger-800" : "text-brand hover:bg-ink-100"
+    }`;
 
   return (
     <>
@@ -67,23 +97,51 @@ export default function NewWorkOrderPage() {
         <Field label="Unit (leave blank if common area)">
           <input name="unit_label" placeholder="e.g. 7C" className={fieldClass} />
         </Field>
-        <Field label="Title">
+        <label className="block">
+          <span className="mb-1 flex items-center justify-between text-xs font-medium text-ink-600">
+            Title
+            {voice.supported && (
+              <button
+                type="button"
+                onClick={() => toggleVoice("title")}
+                className={micClass(voice.listening && voiceField === "title")}
+              >
+                {voice.listening && voiceField === "title" ? "● Stop" : "🎤 Speak"}
+              </button>
+            )}
+          </span>
           <input
             name="title"
             required
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
             placeholder='e.g. "No heat in living room"'
             className={fieldClass}
           />
-        </Field>
-        <Field label="Description">
+        </label>
+        <label className="block">
+          <span className="mb-1 flex items-center justify-between text-xs font-medium text-ink-600">
+            Description
+            {voice.supported && (
+              <button
+                type="button"
+                onClick={() => toggleVoice("description")}
+                className={micClass(voice.listening && voiceField === "description")}
+              >
+                {voice.listening && voiceField === "description" ? "● Stop" : "🎤 Speak"}
+              </button>
+            )}
+          </span>
           <textarea
             name="description"
             rows={4}
             required
-            placeholder="What's going on, what tenant tried, when it started…"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Type, or tap 🎤 Speak to dictate…"
             className={fieldClass}
           />
-        </Field>
+        </label>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Category">
             <select name="category" defaultValue="other" className={fieldClass}>
