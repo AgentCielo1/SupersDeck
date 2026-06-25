@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import PrintTrigger from "@/components/PrintTrigger";
+import PrintControls from "@/components/PrintControls";
 import EmailPdfButton from "@/components/EmailPdfButton";
 import { toNormalized } from "@/lib/wo-adapter";
 import { WorkOrderPrintSheet } from "@workorder/kit/print/WorkOrderPrintSheet";
@@ -41,6 +41,12 @@ export default async function PrintWorkOrderPage({
     fetchUnit(wo.unit_id),
   ]);
 
+  const normalized = toNormalized(wo, { building, unit });
+  const long =
+    (normalized.description?.length ?? 0) +
+      (normalized.completion?.notes?.length ?? 0) >
+    700;
+
   return (
     <div className="bg-white">
       <div className="mx-auto flex max-w-[8.5in] flex-wrap items-center justify-between gap-2 px-6 pt-4 print:hidden">
@@ -52,11 +58,11 @@ export default async function PrintWorkOrderPage({
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           <EmailPdfButton woId={wo.id} ticketNumber={wo.ticket_number} />
-          <PrintTrigger label="Print this work order" />
+          <PrintControls long={long} />
         </div>
       </div>
       <div id="wo-print-sheet">
-        <WorkOrderPrintSheet wo={toNormalized(wo, { building, unit })} />
+        <WorkOrderPrintSheet wo={normalized} />
       </div>
     </div>
   );

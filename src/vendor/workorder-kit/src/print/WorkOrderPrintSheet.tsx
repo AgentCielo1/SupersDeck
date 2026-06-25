@@ -68,7 +68,7 @@ export function WorkOrderPrintSheet({ wo }: WorkOrderPrintSheetProps) {
           <h2 className="mb-1 border-b border-black text-xs font-bold uppercase tracking-widest">
             Complaint / Request
           </h2>
-          <div className="min-h-28 whitespace-pre-wrap p-2 text-sm">
+          <div className="wo-reserve min-h-28 whitespace-pre-wrap p-2 text-sm">
             <p className="font-semibold">{wo.title}</p>
             {wo.description && <p className="mt-1">{wo.description}</p>}
             {wo.original && (
@@ -90,7 +90,7 @@ export function WorkOrderPrintSheet({ wo }: WorkOrderPrintSheetProps) {
           <h2 className="mb-1 border-b border-black text-xs font-bold uppercase tracking-widest">
             Work Performed / Completion Notes
           </h2>
-          <div className="min-h-32 whitespace-pre-wrap p-2 text-sm">
+          <div className="wo-reserve min-h-32 whitespace-pre-wrap p-2 text-sm">
             {wo.completion?.notes ?? ""}
           </div>
         </section>
@@ -112,7 +112,7 @@ export function WorkOrderPrintSheet({ wo }: WorkOrderPrintSheetProps) {
         <section className="space-y-5 text-sm">
           <div className="grid grid-cols-[1fr_10rem] gap-6">
             <div>
-              <div className="flex h-16 items-end border-b border-black pb-1">
+              <div className="wo-sigline flex h-16 items-end border-b border-black pb-1">
                 {sig ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={sig} alt="Resident signature" className="max-h-14" />
@@ -124,7 +124,7 @@ export function WorkOrderPrintSheet({ wo }: WorkOrderPrintSheetProps) {
               </p>
             </div>
             <div>
-              <div className="flex h-16 items-end border-b border-black pb-1">
+              <div className="wo-sigline flex h-16 items-end border-b border-black pb-1">
                 {wo.completion?.signedAt ? fmtDate(wo.completion.signedAt) : ""}
               </div>
               <p className="mt-1 text-xs uppercase tracking-wider text-zinc-600">Date</p>
@@ -133,13 +133,13 @@ export function WorkOrderPrintSheet({ wo }: WorkOrderPrintSheetProps) {
 
           <div className="grid grid-cols-[1fr_10rem] gap-6">
             <div>
-              <div className="flex h-16 items-end border-b border-black pb-1">
+              <div className="wo-sigline flex h-16 items-end border-b border-black pb-1">
                 <span>{wo.completion?.doneBy ?? ""}</span>
               </div>
               <p className="mt-1 text-xs uppercase tracking-wider text-zinc-600">Work done by</p>
             </div>
             <div>
-              <div className="flex h-16 items-end border-b border-black pb-1">
+              <div className="wo-sigline flex h-16 items-end border-b border-black pb-1">
                 {wo.completion?.completedAt ? fmtDate(wo.completion.completedAt) : ""}
               </div>
               <p className="mt-1 text-xs uppercase tracking-wider text-zinc-600">Date</p>
