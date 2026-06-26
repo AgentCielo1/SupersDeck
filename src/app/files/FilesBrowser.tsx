@@ -15,6 +15,7 @@ export type FileRow = {
   unitId: string | null;
   apt: string | null;
   size: number | null;
+  subfolder: string;
   createdAt: string;
 };
 type Ref = { id: string; name: string };
@@ -162,6 +163,7 @@ export default function FilesBrowser({
   const [fCat, setFCat] = useState("all");
   const [navB, setNavB] = useState<string | null>(null);
   const [navA, setNavA] = useState<string | null>(null);
+  const [navS, setNavS] = useState<string | null>(null);
 
   const [preview, setPreview] = useState<FileRow | null>(null);
   const [previewSrc, setPreviewSrc] = useState("");
@@ -335,10 +337,22 @@ export default function FilesBrowser({
     if (bl > 0) out.push([BLDG_LEVEL, bl]);
     return out;
   }, [base, navB, units]);
-  const folderFiles = useMemo(() => {
-    if (!navB || !navA) return [];
-    return base.filter((r) => r.buildingId === navB && (navA === BLDG_LEVEL ? !r.apt : r.apt === navA));
+  // Inside a real apartment: split docs into Dropbox subfolders + loose files.
+  const aptDocs = useMemo(() => {
+    if (!navB || !navA || navA === BLDG_LEVEL) return [];
+    return base.filter((r) => r.buildingId === navB && r.apt === navA);
   }, [base, navB, navA]);
+  const subFolders = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const d of aptDocs) if (d.subfolder) m.set(d.subfolder, (m.get(d.subfolder) ?? 0) + 1);
+    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [aptDocs]);
+  const rootFiles = useMemo(() => aptDocs.filter((d) => !d.subfolder), [aptDocs]);
+  const subfolderFiles = useMemo(() => (navS ? aptDocs.filter((d) => d.subfolder === navS) : []), [aptDocs, navS]);
+  const buildingLevelFiles = useMemo(
+    () => (navB && navA === BLDG_LEVEL ? base.filter((r) => r.buildingId === navB && !r.apt) : []),
+    [base, navB, navA]
+  );
 
   return (
     <div className="space-y-5">
@@ -378,22 +392,39 @@ export default function FilesBrowser({
         </>
       ) : (
         <>
-          <div className="flex items-center gap-1 text-sm">
-            <button type="button" onClick={() => { setNavB(null); setNavA(null); }} className={navB ? "text-brand hover:underline" : "font-medium text-ink-900"}>All files</button>
-            {navB && (<><span className="text-ink-300">/</span><button type="button" onClick={() => setNavA(null)} className={navA ? "text-brand hover:underline" : "font-medium text-ink-900"}>{bName[navB] ?? navB}</button></>)}
-            {navB && navA && (<><span className="text-ink-300">/</span><span className="font-medium text-ink-900">{navA === BLDG_LEVEL ? "Building-level" : navA}</span></>)}
+          <div className="flex flex-wrap items-center gap-1 text-sm">
+            <button type="button" onClick={() => { setNavB(null); setNavA(null); setNavS(null); }} className={navB ? "text-brand hover:underline" : "font-medium text-ink-900"}>All files</button>
+            {navB && (<><span className="text-ink-300">/</span><button type="button" onClick={() => { setNavA(null); setNavS(null); }} className={navA ? "text-brand hover:underline" : "font-medium text-ink-900"}>{bName[navB] ?? navB}</button></>)}
+            {navB && navA && (<><span className="text-ink-300">/</span><button type="button" onClick={() => setNavS(null)} className={navS ? "text-brand hover:underline" : "font-medium text-ink-900"}>{navA === BLDG_LEVEL ? "Building-level" : navA}</button></>)}
+            {navB && navA && navS && (<><span className="text-ink-300">/</span><span className="font-medium text-ink-900">{navS}</span></>)}
           </div>
           {!navB && (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-              {buildingFolders.map(([bid, n]) => <Folder key={bid} label={bid === "__none__" ? "Unfiled" : bName[bid] ?? bid} count={n} onClick={() => { setNavB(bid); setNavA(null); }} />)}
+              {buildingFolders.map(([bid, n]) => <Folder key={bid} label={bid === "__none__" ? "Unfiled" : bName[bid] ?? bid} count={n} onClick={() => { setNavB(bid); setNavA(null); setNavS(null); }} />)}
             </div>
           )}
           {navB && !navA && (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
-              {aptFolders.map(([apt, n]) => <Folder key={apt} label={apt === BLDG_LEVEL ? "Building-level" : apt} count={n} onClick={() => setNavA(apt)} />)}
+              {aptFolders.map(([apt, n]) => <Folder key={apt} label={apt === BLDG_LEVEL ? "Building-level" : apt} count={n} onClick={() => { setNavA(apt); setNavS(null); }} />)}
             </div>
           )}
-          {navB && navA && <FileList list={folderFiles} offlineIds={offlineIds} on={on} />}
+          {navB && navA === BLDG_LEVEL && <FileList list={buildingLevelFiles} offlineIds={offlineIds} on={on} />}
+          {navB && navA && navA !== BLDG_LEVEL && !navS && (
+            <div className="space-y-3">
+              {subFolders.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+                  {subFolders.map(([s, n]) => <Folder key={s} label={s} count={n} onClick={() => setNavS(s)} />)}
+                </div>
+              )}
+              {rootFiles.length > 0 && <FileList list={rootFiles} offlineIds={offlineIds} on={on} />}
+              {subFolders.length === 0 && rootFiles.length === 0 && (
+                <div className="rounded-xl2 border border-dashed border-ink-200 bg-white px-4 py-10 text-center text-sm text-ink-400">
+                  No files in this apartment yet — upload above (it&apos;s pre-targeted to this folder).
+                </div>
+              )}
+            </div>
+          )}
+          {navB && navA && navA !== BLDG_LEVEL && navS && <FileList list={subfolderFiles} offlineIds={offlineIds} on={on} />}
         </>
       )}
 
