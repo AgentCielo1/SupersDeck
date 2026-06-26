@@ -186,6 +186,15 @@ export default function FilesBrowser({
     return () => { if (revoke) URL.revokeObjectURL(revoke); };
   }, [preview, offlineIds]);
 
+  // Opening an apartment folder pre-targets the upload form to that apartment.
+  useEffect(() => {
+    if (navB && navA && navA !== BLDG_LEVEL) {
+      const u = units.find((x) => x.building_id === navB && x.label === navA);
+      setBuildingId(navB);
+      setUnitId(u?.id ?? "");
+    }
+  }, [navB, navA, units]);
+
   const uploadUnits = useMemo(() => (buildingId ? units.filter((u) => u.building_id === buildingId) : []), [buildingId, units]);
   const moveUnits = useMemo(() => (moveB ? units.filter((u) => u.building_id === moveB) : []), [moveB, units]);
   const bName = useMemo(() => Object.fromEntries(buildings.map((b) => [b.id, b.name])), [buildings]);
@@ -286,22 +295,46 @@ export default function FilesBrowser({
     ? base.filter((r) => words.every((w) => `${r.name} ${r.category} ${r.building ?? ""} ${r.apt ?? ""}`.toLowerCase().includes(w)))
     : [];
 
-  const buildingFolders = useMemo(() => {
+  // Doc counts per building, then per apartment within a building.
+  const docCountByBldg = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of base) { const k = r.buildingId ?? "__none__"; m.set(k, (m.get(k) ?? 0) + 1); }
-    return Array.from(m.entries()).sort((a, b) => (bName[a[0]] ?? a[0]).localeCompare(bName[b[0]] ?? b[0]));
-  }, [base, bName]);
+    return m;
+  }, [base]);
+  // ALL buildings show as folders (even with 0 files), + "Unfiled" if any.
+  const buildingFolders = useMemo(() => {
+    const list = buildings
+      .map((b) => [b.id, docCountByBldg.get(b.id) ?? 0] as [string, number])
+      .sort((a, b) => (bName[a[0]] ?? "").localeCompare(bName[b[0]] ?? ""));
+    const unfiled = docCountByBldg.get("__none__") ?? 0;
+    if (unfiled > 0) list.push(["__none__", unfiled]);
+    return list;
+  }, [buildings, docCountByBldg, bName]);
+  // EVERY apartment in the building shows as a folder (even empty), + any
+  // building-level docs, + any orphan apt labels found only in documents.
   const aptFolders = useMemo(() => {
     if (!navB) return [];
-    const m = new Map<string, number>();
-    for (const r of base) { if (r.buildingId !== navB) continue; const k = r.apt ?? BLDG_LEVEL; m.set(k, (m.get(k) ?? 0) + 1); }
-    return Array.from(m.entries()).sort((a, b) => {
-      if (a[0] === BLDG_LEVEL) return 1;
-      if (b[0] === BLDG_LEVEL) return -1;
+    const cnt = new Map<string, number>();
+    for (const r of base) {
+      if (r.buildingId !== navB) continue;
+      cnt.set(r.apt ?? BLDG_LEVEL, (cnt.get(r.apt ?? BLDG_LEVEL) ?? 0) + 1);
+    }
+    const labels = new Set<string>();
+    const out: [string, number][] = [];
+    for (const u of units) {
+      if (u.building_id !== navB) continue;
+      labels.add(u.label);
+      out.push([u.label, cnt.get(u.label) ?? 0]);
+    }
+    for (const [k, n] of cnt) if (k !== BLDG_LEVEL && !labels.has(k)) out.push([k, n]);
+    out.sort((a, b) => {
       const [af, al] = aptKey(a[0]); const [bf, bl] = aptKey(b[0]);
       return af - bf || al.localeCompare(bl);
     });
-  }, [base, navB]);
+    const bl = cnt.get(BLDG_LEVEL) ?? 0;
+    if (bl > 0) out.push([BLDG_LEVEL, bl]);
+    return out;
+  }, [base, navB, units]);
   const folderFiles = useMemo(() => {
     if (!navB || !navA) return [];
     return base.filter((r) => r.buildingId === navB && (navA === BLDG_LEVEL ? !r.apt : r.apt === navA));
