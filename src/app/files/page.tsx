@@ -33,6 +33,7 @@ export default async function FilesPage() {
     building: d.building_id ? bName[d.building_id] ?? d.building_id : null,
     unitId: d.unit_id,
     apt: d.unit_id ? uLabel[d.unit_id] ?? null : null,
+    size: d.size ?? null,
     createdAt: d.created_at,
   }));
 
