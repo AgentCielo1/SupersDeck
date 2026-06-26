@@ -72,6 +72,7 @@ export async function PATCH(
   }
 
   revalidatePath("/vendors");
+  revalidatePath("/contractors");
   revalidatePath(`/vendors/${params.id}/edit`);
   revalidatePath("/", "layout");
 
@@ -100,6 +101,7 @@ export async function DELETE(
   }
 
   revalidatePath("/vendors");
+  revalidatePath("/contractors");
   revalidatePath("/", "layout");
 
   return NextResponse.json({ deleted: params.id });
