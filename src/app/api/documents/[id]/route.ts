@@ -25,14 +25,58 @@ export async function GET(
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
   // Default: inline (preview in-browser). ?download=1 forces a file download.
-  const wantsDownload = new URL(request.url).searchParams.get("download") === "1";
+  // ?share=1 returns a 7-day signed URL as JSON (for the Share action).
+  const sp = new URL(request.url).searchParams;
+  const wantsDownload = sp.get("download") === "1";
+  const wantsShare = sp.get("share") === "1";
+  const expiry = wantsShare ? 60 * 60 * 24 * 7 : 120;
   const { data, error } = await supabase.storage
     .from(DOC_BUCKET)
-    .createSignedUrl(doc.path, 120, wantsDownload ? { download: doc.name ?? undefined } : {});
+    .createSignedUrl(doc.path, expiry, wantsDownload ? { download: doc.name ?? undefined } : {});
   if (error || !data?.signedUrl) {
     return NextResponse.json({ error: error?.message ?? "Sign failed." }, { status: 500 });
   }
+  if (wantsShare) return NextResponse.json({ url: data.signedUrl, name: doc.name });
   return NextResponse.redirect(data.signedUrl);
+}
+
+// PATCH /api/documents/:id — rename (name) or move (building_id / unit_id).
+const PATCH_ALLOWED = new Set(["name", "building_id", "unit_id", "category"]);
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
+  }
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const update: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (PATCH_ALLOWED.has(k)) update[k] = v === "" ? null : v;
+  }
+  if (typeof update.name === "string" && !update.name.trim()) {
+    return NextResponse.json({ error: "Name can't be empty." }, { status: 400 });
+  }
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
+  }
+  const { data, error } = await supabase
+    .from("documents")
+    .update(update)
+    .eq("id", params.id)
+    .select()
+    .single();
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+  revalidatePath("/files");
+  return NextResponse.json(data);
 }
 
 export async function DELETE(
