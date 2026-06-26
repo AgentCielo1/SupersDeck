@@ -7,8 +7,21 @@ import CertificationsClient, { type CertRow } from "./CertificationsClient";
 
 export const dynamic = "force-dynamic";
 
-// Direct FDNY online renewal portal (NYC ID login → renew Certificates of Fitness).
-const FDNY_RENEW = "https://fires.fdnycloud.org/CitizenAccess/Default.aspx";
+// Where to renew, by credential. Falls back from the cert's template to a
+// keyword match so imported + future-uploaded certs both get a renewal link.
+const RENEW = {
+  fdny: "https://fires.fdnycloud.org/CitizenAccess/Default.aspx",
+  aha: "https://cpr.heart.org/en/course-catalog-search",
+  sst: "https://www.nyc.gov/site/buildings/safety/sst-worker-information.page",
+};
+function renewUrlFor(certKey: string | null, agency: string | null, type: string, templateRenew?: string): string | null {
+  if (templateRenew) return templateRenew;
+  const hay = `${certKey ?? ""} ${agency ?? ""} ${type}`.toLowerCase();
+  if (hay.includes("fdny")) return RENEW.fdny;
+  if (/\b(aha|cpr|aed|heartsaver|american heart|bls)\b/.test(hay)) return RENEW.aha;
+  if (/\bsst\b|site safety/.test(hay)) return RENEW.sst;
+  return null;
+}
 
 const RECOMMENDED_FOR_SUPER = [
   "fdny-s12", "fdny-s13", "fdny-s95", "fdny-p99",
@@ -31,7 +44,6 @@ export default async function CertificationsPage() {
 
   const rows: CertRow[] = certs.map((c) => {
     const t = c.cert_key ? complianceTemplateById(c.cert_key) : undefined;
-    const isFdny = !!c.cert_key?.startsWith("fdny") || (c.agency ?? "").toUpperCase().includes("FDNY");
     return {
       id: c.id,
       holder_name: c.holder_name,
@@ -43,7 +55,7 @@ export default async function CertificationsPage() {
       notes: c.notes ?? null,
       cert_key: c.cert_key ?? null,
       photoUrl: c.photo_path ? signed.get(c.photo_path) ?? null : null,
-      renewUrl: t?.renew_url ?? (isFdny ? FDNY_RENEW : null),
+      renewUrl: renewUrlFor(c.cert_key ?? null, c.agency ?? null, c.type, t?.renew_url),
       infoUrl: t?.portal_url ?? null,
     };
   });
