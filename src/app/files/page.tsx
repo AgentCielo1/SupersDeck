@@ -12,6 +12,19 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+// The Dropbox subfolder within an apartment (Work Orders / Payments / Pictures…),
+// derived from the import path; falls back to the category for app-created files.
+function subfolderOf(path: string, category: string): string {
+  if (path?.startsWith("mha/")) {
+    const segs = path.split("/"); // mha/<bldg>/<apt>/<sub?>/<file>
+    if (segs.length >= 5) return segs[3].replace(/_/g, " ");
+    return "";
+  }
+  if (category === "Work order") return "Work Orders";
+  if (category === "Lease") return "Leases";
+  return "";
+}
+
 export default async function FilesPage() {
   const [docs, buildings, units] = await Promise.all([
     db.documents(),
@@ -33,6 +46,8 @@ export default async function FilesPage() {
     building: d.building_id ? bName[d.building_id] ?? d.building_id : null,
     unitId: d.unit_id,
     apt: d.unit_id ? uLabel[d.unit_id] ?? null : null,
+    size: d.size ?? null,
+    subfolder: subfolderOf(d.path, d.category ?? ""),
     createdAt: d.created_at,
   }));
 
