@@ -103,7 +103,8 @@ export interface ComplianceTemplate {
   frequency: ComplianceFrequency;
   due_window?: string;              // "by May 1", "Oct 1 – May 31", ...
   vendor_type_required?: string;    // "FDNY S-13 holder", "DOB Licensed Master Plumber"
-  portal_url?: string;
+  portal_url?: string;              // official info / landing page
+  renew_url?: string;               // direct online renewal portal (where you log in + renew)
   applies_when?: string;            // plain-language scope ("Buildings with cooling towers")
   consequence?: string;             // what happens if missed
   // Tells the compliance generator how to compute next_due:
@@ -259,9 +260,11 @@ export interface Certification {
   id: ID;
   holder_name: string;
   type: string;                     // "FDNY S-13", "EPA RRP", "OSHA 30", "P-99"
-  number: string;
-  issued_at: string;
-  expires_at: string;
-  agency: string;
-  notes?: string;
+  number?: string | null;           // many cards/training certs have no number
+  issued_at?: string | null;
+  expires_at?: string | null;       // null = no expiration (e.g. OSHA card, EPA 608)
+  agency?: string | null;
+  notes?: string | null;
+  photo_path?: string | null;       // object key in the `documents` bucket (the scanned cert)
+  cert_key?: string | null;         // links to a compliance template (renewal link)
 }

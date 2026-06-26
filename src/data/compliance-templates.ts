@@ -473,24 +473,28 @@ export const COMPLIANCE_TEMPLATES: ComplianceTemplate[] = [
   {
     id: "fdny-s12",
     due_rule: "anniversary:5y",
-    name: "FDNY S-12 (Citywide Standpipe)",
+    name: "FDNY S-12 (Citywide Sprinkler)",
+    category: "Certifications",
+    description: "Sprinkler system supervision certificate.",
+    statute: "NYC Fire Code §405",
+    agency: "FDNY",
+    frequency: "every-5-years",
+    portal_url:
+      "https://www.nyc.gov/site/fdny/business/all-certifications/certificates-of-fitness.page",
+    renew_url: "https://fires.fdnycloud.org/CitizenAccess/Default.aspx",
+  },
+  {
+    id: "fdny-s13",
+    due_rule: "anniversary:5y",
+    name: "FDNY S-13 (Citywide Standpipe)",
     category: "Certifications",
     description: "Standpipe system supervision certificate.",
     statute: "NYC Fire Code §405",
     agency: "FDNY",
     frequency: "every-5-years",
     portal_url:
-      "https://www.nyc.gov/site/fdny/business/all-certifications/certificate-of-fitness.page",
-  },
-  {
-    id: "fdny-s13",
-    due_rule: "anniversary:5y",
-    name: "FDNY S-13 (Citywide Sprinkler)",
-    category: "Certifications",
-    description: "Sprinkler system supervision certificate.",
-    statute: "NYC Fire Code §405",
-    agency: "FDNY",
-    frequency: "every-5-years",
+      "https://www.nyc.gov/site/fdny/business/all-certifications/certificates-of-fitness.page",
+    renew_url: "https://fires.fdnycloud.org/CitizenAccess/Default.aspx",
   },
   {
     id: "fdny-s95",
@@ -502,6 +506,9 @@ export const COMPLIANCE_TEMPLATES: ComplianceTemplate[] = [
     statute: "NYC Fire Code §901",
     agency: "FDNY",
     frequency: "every-5-years",
+    portal_url:
+      "https://www.nyc.gov/site/fdny/business/all-certifications/certificates-of-fitness.page",
+    renew_url: "https://fires.fdnycloud.org/CitizenAccess/Default.aspx",
   },
   {
     id: "fdny-p99",
@@ -513,6 +520,9 @@ export const COMPLIANCE_TEMPLATES: ComplianceTemplate[] = [
     statute: "NYC Fire Code §606",
     agency: "FDNY",
     frequency: "every-5-years",
+    portal_url:
+      "https://www.nyc.gov/site/fdny/business/all-certifications/certificates-of-fitness.page",
+    renew_url: "https://fires.fdnycloud.org/CitizenAccess/Default.aspx",
   },
   {
     id: "fdny-q99",
@@ -524,6 +534,9 @@ export const COMPLIANCE_TEMPLATES: ComplianceTemplate[] = [
     statute: "NYC Fire Code §606",
     agency: "FDNY",
     frequency: "every-5-years",
+    portal_url:
+      "https://www.nyc.gov/site/fdny/business/all-certifications/certificates-of-fitness.page",
+    renew_url: "https://fires.fdnycloud.org/CitizenAccess/Default.aspx",
     applies_when: "Buildings with oil heat",
   },
   {
@@ -536,6 +549,9 @@ export const COMPLIANCE_TEMPLATES: ComplianceTemplate[] = [
     statute: "NYC Fire Code §404",
     agency: "FDNY",
     frequency: "every-5-years",
+    portal_url:
+      "https://www.nyc.gov/site/fdny/business/all-certifications/certificates-of-fitness.page",
+    renew_url: "https://fires.fdnycloud.org/CitizenAccess/Default.aspx",
   },
   {
     id: "epa-rrp",
