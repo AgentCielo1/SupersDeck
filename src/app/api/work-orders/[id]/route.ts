@@ -4,6 +4,8 @@ import { Resend } from "resend";
 import { getServerSupabase } from "@/lib/supabase";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
 import { resolvePhotoUrls } from "@/lib/storage";
+import { archiveCompletedWorkOrder } from "@/lib/wo-archive";
+import type { WorkOrder } from "@/types";
 
 // =============================================================================
 //  PATCH /api/work-orders/:id  — edit a work order
@@ -136,6 +138,12 @@ export async function PATCH(
   }
   if (!data) {
     return NextResponse.json({ error: "Work order not found" }, { status: 404 });
+  }
+
+  // If this edit closed the work order, auto-file its PDF into the Files tab.
+  if ("status" in update && update.status === "completed") {
+    await archiveCompletedWorkOrder(data as WorkOrder);
+    revalidatePath("/files");
   }
 
   // Log meaningful changes to the timeline. Quiet for edits that only touch

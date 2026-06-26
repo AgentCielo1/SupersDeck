@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
+import { archiveCompletedWorkOrder } from "@/lib/wo-archive";
+import type { WorkOrder } from "@/types";
 
 // =============================================================================
 //  POST /api/work-orders/:id/complete
@@ -89,9 +91,13 @@ export async function POST(
     author: signer,
   });
 
+  // Auto-file the completed work order into the Files tab (building/apartment).
+  await archiveCompletedWorkOrder(data as WorkOrder);
+
   revalidatePath("/work-orders");
   revalidatePath(`/work-orders/${params.id}`);
   revalidatePath(`/track/${data.ticket_number}`);
+  revalidatePath("/files");
   revalidatePath("/", "layout");
 
   return NextResponse.json(data);
