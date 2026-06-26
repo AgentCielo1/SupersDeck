@@ -19,6 +19,7 @@ export default async function TenantsPage() {
   );
 
   const rows: DirRow[] = units.map((u) => ({
+    id: u.id,
     buildingId: u.building_id,
     building: nameById[u.building_id] ?? u.building_id,
     apt: u.label,
@@ -32,9 +33,12 @@ export default async function TenantsPage() {
     <>
       <PageHeader
         title="Tenant directory"
-        subtitle="Search a name to find the apartment, or a building + apartment to find the tenant."
+        subtitle="Search a name to find the apartment, or a building + apartment to find the tenant. Add, edit, or vacate apartments inline."
       />
-      <TenantDirectory rows={rows} />
+      <TenantDirectory
+        rows={rows}
+        buildings={buildings.map((b) => ({ id: b.id, name: b.name }))}
+      />
     </>
   );
 }
