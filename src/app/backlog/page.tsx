@@ -27,7 +27,7 @@ export default async function BacklogPage() {
   return (
     <>
       <PageHeader
-        title="Backlog"
+        title="Work Orders: Pending"
         subtitle="Pending jobs to hand out when it's slow. Add a note + files, drop it in a folder, assign a handyman when you're ready."
       />
       <BacklogBoard
