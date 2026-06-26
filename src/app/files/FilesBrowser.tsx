@@ -42,6 +42,7 @@ export default function FilesBrowser({
   const [unitId, setUnitId] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [preview, setPreview] = useState<FileRow | null>(null);
 
   const [q, setQ] = useState("");
   const [fCat, setFCat] = useState("all");
@@ -171,11 +172,11 @@ export default function FilesBrowser({
             )}
             {list.slice(0, 500).map((r) => (
               <tr key={r.id} className="border-b border-ink-100 last:border-0 hover:bg-ink-50/50">
-                <td className="px-3 py-2"><a href={`/api/documents/${r.id}`} className="text-brand hover:underline">{r.name}</a></td>
+                <td className="px-3 py-2"><button type="button" onClick={() => setPreview(r)} className="text-left text-brand hover:underline">{r.name}</button></td>
                 <td className="px-3 py-2 text-xs text-ink-600">{r.category}</td>
                 {showLoc && <td className="px-3 py-2 text-xs text-ink-600">{r.building ?? "—"}{r.apt ? ` · ${r.apt}` : ""}</td>}
                 <td className="px-3 py-2 text-xs text-ink-400">{new Date(r.createdAt).toLocaleDateString()}</td>
-                <td className="px-3 py-2 text-right"><button type="button" onClick={() => del(r.id)} className="text-xs text-ink-400 hover:text-danger-800">Delete</button></td>
+                <td className="whitespace-nowrap px-3 py-2 text-right text-xs"><a href={`/api/documents/${r.id}?download=1`} className="text-ink-400 hover:text-ink-900">Download</a><button type="button" onClick={() => del(r.id)} className="ml-3 text-ink-400 hover:text-danger-800">Delete</button></td>
               </tr>
             ))}
           </tbody>
@@ -259,6 +260,42 @@ export default function FilesBrowser({
           )}
           {navB && navA && <FileTable list={folderFiles} />}
         </>
+      )}
+
+      {preview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setPreview(null)}
+        >
+          <div
+            className="flex h-[85vh] w-full max-w-4xl flex-col rounded-xl2 bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-ink-200 px-4 py-2">
+              <span className="truncate text-sm font-medium text-ink-900">{preview.name}</span>
+              <div className="flex shrink-0 items-center gap-3 text-sm">
+                <a href={`/api/documents/${preview.id}?download=1`} className="text-brand hover:underline">Download</a>
+                <a href={`/api/documents/${preview.id}`} target="_blank" rel="noopener noreferrer" className="text-ink-400 hover:text-ink-900">Open ↗</a>
+                <button type="button" onClick={() => setPreview(null)} aria-label="Close" className="text-ink-400 hover:text-ink-900">✕</button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 bg-ink-100">
+              {/\.pdf$/i.test(preview.name) ? (
+                <iframe src={`/api/documents/${preview.id}`} title={preview.name} className="h-full w-full" />
+              ) : /\.(jpe?g|png|heic|gif|webp)$/i.test(preview.name) ? (
+                <div className="flex h-full w-full items-center justify-center overflow-auto p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/documents/${preview.id}`} alt={preview.name} className="max-h-full max-w-full object-contain" />
+                </div>
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-ink-500">
+                  <p>No in-browser preview for this file type.</p>
+                  <a href={`/api/documents/${preview.id}?download=1`} className="rounded-md bg-brand-600 px-3 py-1.5 font-medium text-white">Download</a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
