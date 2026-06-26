@@ -74,7 +74,31 @@ export async function PATCH(
   revalidatePath("/lead-paint");
   revalidatePath("/leases");
   revalidatePath("/buildings");
+  revalidatePath("/tenants");
   revalidatePath("/", "layout");
 
   return NextResponse.json(data);
+}
+
+// DELETE /api/units/:id — remove an apartment. Fails if work orders still
+// reference it (FK), in which case the caller should vacate instead.
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  const supabase = getServerSupabase();
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
+  }
+  const { error } = await supabase.from("units").delete().eq("id", params.id);
+  if (error) {
+    const msg = /foreign key|violates/i.test(error.message)
+      ? "Can't delete — this apartment still has work orders or records. Vacate it instead."
+      : error.message;
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+  revalidatePath("/tenants");
+  revalidatePath("/leases");
+  revalidatePath("/buildings");
+  return NextResponse.json({ ok: true });
 }
