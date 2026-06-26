@@ -257,15 +257,26 @@ async function fetchTasks(): Promise<Task[]> {
 async function fetchDocuments(): Promise<Document[]> {
   const s = getSupabase();
   if (!s) return [];
-  const { data, error } = await s
-    .from("documents")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) {
-    console.error("[db] fetchDocuments:", error.message);
-    return []; // table may not exist yet (pre-migration) — non-fatal
+  // Page through all rows — PostgREST caps a single select at 1,000, and we
+  // have several thousand imported work-order docs. Without this the Files tab
+  // would silently show only the newest 1,000 (most apartments look empty).
+  const PAGE = 1000;
+  const all: Document[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await s
+      .from("documents")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error) {
+      console.error("[db] fetchDocuments:", error.message);
+      return all; // table may not exist yet (pre-migration) — non-fatal
+    }
+    if (!data?.length) break;
+    all.push(...(data as Document[]));
+    if (data.length < PAGE) break;
   }
-  return (data ?? []) as Document[];
+  return all;
 }
 
 // =============================================================================
