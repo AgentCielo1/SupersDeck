@@ -9,7 +9,7 @@ import { DOC_BUCKET } from "@/types/documents";
 // =============================================================================
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   const supabase = createSupabaseServerClient();
@@ -24,9 +24,11 @@ export async function GET(
   if (!doc?.path) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
+  // Default: inline (preview in-browser). ?download=1 forces a file download.
+  const wantsDownload = new URL(request.url).searchParams.get("download") === "1";
   const { data, error } = await supabase.storage
     .from(DOC_BUCKET)
-    .createSignedUrl(doc.path, 120, { download: doc.name ?? undefined });
+    .createSignedUrl(doc.path, 120, wantsDownload ? { download: doc.name ?? undefined } : {});
   if (error || !data?.signedUrl) {
     return NextResponse.json({ error: error?.message ?? "Sign failed." }, { status: 500 });
   }
