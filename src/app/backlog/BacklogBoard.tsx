@@ -40,6 +40,17 @@ export default function BacklogBoard({
 
   const [filterFolder, setFilterFolder] = useState("all");
   const [showDone, setShowDone] = useState(false);
+  // Categories start collapsed — pick one, then "Show all" to drop it down.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleFolder(f: string) {
+    setExpanded((s) => {
+      const n = new Set(s);
+      if (n.has(f)) n.delete(f);
+      else n.add(f);
+      return n;
+    });
+  }
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -247,32 +258,60 @@ export default function BacklogBoard({
           you hand it out.
         </div>
       ) : (
-        shownFolders.map((f) => {
-          const ts = visible.filter((t) => (t.folder || "General") === f);
-          return (
-            <section key={f}>
-              <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink-900">
-                <span className="rounded-md bg-ink-100 px-2 py-0.5 text-xs">
-                  {f}
-                </span>
-                <span className="text-xs font-normal text-ink-400">
-                  {ts.length}
-                </span>
-              </h2>
-              <div className="space-y-2">
-                {ts.map((t) => (
-                  <TaskCard
-                    key={t.id}
-                    task={t}
-                    buildings={buildings}
-                    vendors={vendors}
-                    urlByPath={urlByPath}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })
+        <div className="space-y-2">
+          {shownFolders.map((f) => {
+            const ts = visible.filter((t) => (t.folder || "General") === f);
+            const open = expanded.has(f) || filterFolder === f;
+            return (
+              <section
+                key={f}
+                className="overflow-hidden rounded-xl2 border border-ink-200 bg-white"
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleFolder(f)}
+                  aria-expanded={open}
+                  className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-ink-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg
+                      className={`h-4 w-4 text-ink-400 transition-transform ${open ? "rotate-90" : ""}`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M9 5l7 7-7 7" />
+                    </svg>
+                    <span className="text-sm font-semibold text-ink-900">{f}</span>
+                    <span className="rounded-full bg-ink-100 px-2 py-0.5 text-xs text-ink-500">
+                      {ts.length}
+                    </span>
+                  </span>
+                  <span className="text-xs font-medium text-brand-600">
+                    {open ? "Hide" : `Show all (${ts.length})`}
+                  </span>
+                </button>
+                {open && (
+                  <div className="space-y-2 border-t border-ink-100 p-3">
+                    {ts.map((t) => (
+                      <TaskCard
+                        key={t.id}
+                        task={t}
+                        buildings={buildings}
+                        vendors={vendors}
+                        urlByPath={urlByPath}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
       )}
     </div>
   );
