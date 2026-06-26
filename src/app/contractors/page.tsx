@@ -8,6 +8,7 @@ import {
   type ComplianceStatus,
 } from "@workorder/kit/contractor/contract";
 import type { ComplianceDocumentRow } from "@/types/contractors";
+import ContractorActions from "./ContractorActions";
 
 export const dynamic = "force-dynamic";
 
@@ -81,15 +82,23 @@ export default async function ContractorsPage() {
             </Link>
           </p>
         </div>
-        <Link
-          href="/contractors/qr"
-          className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"
-        >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" />
-          </svg>
-          Sign-in QR &amp; link
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/vendors/new"
+            className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"
+          >
+            + Add contractor
+          </Link>
+          <Link
+            href="/contractors/qr"
+            className="inline-flex items-center gap-2 rounded-md border border-ink-200 bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" />
+            </svg>
+            Sign-in QR &amp; link
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -102,7 +111,7 @@ export default async function ContractorsPage() {
         <div className="border-b px-4 py-3 text-sm font-medium">Companies</div>
         {byCompany.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-ink-400">
-            {supabase ? "No vendors yet." : "Connect Supabase to track compliance."}
+            {supabase ? "No contractors yet — add one above." : "Connect Supabase to track compliance."}
           </div>
         ) : (
           <ul className="divide-y">
@@ -119,6 +128,7 @@ export default async function ContractorsPage() {
                 >
                   {complianceStatusLabel(status)}
                 </span>
+                <ContractorActions id={vendor.id} name={vendor.name} />
               </li>
             ))}
           </ul>
