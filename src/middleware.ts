@@ -19,7 +19,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 // =============================================================================
 
 // Pages anyone can reach without signing in.
-const PUBLIC_PATHS = ["/login", "/auth", "/intake", "/track", "/sign-in"];
+const PUBLIC_PATHS = ["/login", "/auth", "/intake", "/track", "/sign-in", "/privacy", "/terms"];
 
 // API endpoints that tenant intake + contractor sign-in call anonymously.
 // Whitelisted by method so PATCH/DELETE variants of the same paths stay private:
@@ -31,6 +31,8 @@ const PUBLIC_API_BY_METHOD: Array<{ method: string; prefix: string; exact?: bool
   { method: "GET", prefix: "/api/buildings" },
   { method: "GET", prefix: "/api/public/sign-in" },
   { method: "POST", prefix: "/api/public/sign-in" },
+  // Stripe posts here with its own signature auth — must bypass the login gate.
+  { method: "POST", prefix: "/api/billing/webhook", exact: true },
 ];
 
 function isPublic(pathname: string, method: string): boolean {
@@ -99,6 +101,37 @@ export async function middleware(request: NextRequest) {
   // If they're already signed in and hit /login, send them home.
   if (user && pathname === "/login") {
     return NextResponse.redirect(new URL("/", request.url));
+  }
+
+  // Billing gate: a signed-in user whose org isn't on an active plan AND has
+  // more than the free building limit (1) is pushed to /billing to upgrade.
+  // FAILS OPEN — any error (migration not run, RLS, etc.) skips the gate so
+  // the live app is never accidentally locked out. The default org ships
+  // 'active', so existing single-building deployments are unaffected.
+  if (
+    user &&
+    !isPublic(pathname, request.method) &&
+    !pathname.startsWith("/api") &&
+    pathname !== "/billing"
+  ) {
+    try {
+      const { data: org } = await supabase
+        .from("orgs")
+        .select("subscription_status")
+        .maybeSingle();
+      if (org && org.subscription_status !== "active") {
+        const { count } = await supabase
+          .from("buildings")
+          .select("id", { count: "exact", head: true });
+        if ((count ?? 0) > 1) {
+          const upgradeUrl = new URL("/billing", request.url);
+          upgradeUrl.searchParams.set("upgrade", "1");
+          return NextResponse.redirect(upgradeUrl);
+        }
+      }
+    } catch {
+      // fail open — never block the app on a billing-check error
+    }
   }
 
   return response;

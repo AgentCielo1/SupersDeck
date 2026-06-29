@@ -50,13 +50,22 @@ export function createSupabaseServerClient() {
 // Re-export so callers don't need to know both file paths.
 export { getServerSupabase } from "@/lib/supabase";
 
-/** Returns the current user's profile + role, or null if signed out. */
-export async function getCurrentUserProfile(): Promise<{
+export interface CurrentUserProfile {
   id: string;
   email: string;
   full_name: string | null;
   role: string;
-} | null> {
+  // Added by migration-alerts-billing.sql. Optional so the app keeps working
+  // on a database that hasn't run the migration yet.
+  org_id?: string | null;
+  push_consent?: boolean | null;
+  sms_consent?: boolean | null;
+  notification_consented_at?: string | null;
+  phone_number?: string | null;
+}
+
+/** Returns the current user's profile + role, or null if signed out. */
+export async function getCurrentUserProfile(): Promise<CurrentUserProfile | null> {
   const supabase = createSupabaseServerClient();
   if (!supabase) return null;
 
@@ -65,18 +74,43 @@ export async function getCurrentUserProfile(): Promise<{
   } = await supabase.auth.getUser();
   if (!user) return null;
 
+  // select("*") (not a fixed column list) so this keeps working whether or not
+  // the alerts/billing migration has added org_id + consent columns yet.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, email, full_name, role")
+    .select("*")
     .eq("id", user.id)
     .maybeSingle();
 
   // Fall back to the bare user record if profiles row hasn't been created yet
   // (e.g. trigger hasn't fired, or the profiles table doesn't exist yet).
-  return profile ?? {
-    id: user.id,
-    email: user.email ?? "",
-    full_name: null,
-    role: "super",
-  };
+  return (
+    (profile as CurrentUserProfile | null) ?? {
+      id: user.id,
+      email: user.email ?? "",
+      full_name: null,
+      role: "super",
+    }
+  );
+}
+
+/** The current user's org (RLS-gated to their own org), or null. Used by the
+ *  billing page + gating. Returns null gracefully if the migration hasn't run. */
+export async function getCurrentOrg(): Promise<{
+  id: string;
+  name: string;
+  subscription_status: "free" | "active" | "past_due" | "cancelled";
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  current_period_end: string | null;
+} | null> {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) return null;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data, error } = await supabase.from("orgs").select("*").maybeSingle();
+  if (error) return null;
+  return (data as any) ?? null;
 }

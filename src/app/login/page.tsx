@@ -185,6 +185,16 @@ export default function LoginPage() {
             </form>
           </>
         )}
+
+        <div className="mt-6 border-t border-ink-200 pt-4 text-center text-xs text-ink-400">
+          <a href="/privacy" className="hover:text-brand-600 hover:underline">
+            Privacy Policy
+          </a>
+          <span className="mx-2">·</span>
+          <a href="/terms" className="hover:text-brand-600 hover:underline">
+            Terms of Service
+          </a>
+        </div>
       </div>
     </div>
   );

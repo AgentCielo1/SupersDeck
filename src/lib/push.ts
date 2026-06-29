@@ -32,12 +32,22 @@ function ensureConfigured(): boolean {
   return true;
 }
 
+export interface PushAction {
+  action: string;
+  title: string;
+}
+
 export interface PushPayload {
   title: string;
   body: string;
   url?: string;
   tag?: string;
   priority?: "emergency" | "high" | "normal" | "low";
+  /** Notification action buttons (e.g. an "Acknowledge" button). Honored by
+   *  the service worker; iOS PWAs ignore these but Android/desktop show them. */
+  actions?: PushAction[];
+  /** Opaque id surfaced back to the SW on action click (e.g. the alert id). */
+  alertId?: string;
 }
 
 /** Send a push to every subscription owned by any of the given user IDs. */
