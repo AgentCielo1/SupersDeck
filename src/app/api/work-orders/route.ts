@@ -171,6 +171,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Keep the Tenant Directory current: a work order carries the tenant's phone,
+  // so refresh the unit's tenant_phone from it (latest WO wins), and fill in the
+  // tenant name only when the unit has none (never overwrite the lease-roll name).
+  if (unit_id && row.reporter_phone) {
+    const digits = row.reporter_phone.replace(/\D/g, "");
+    if (digits.length >= 10 && !/555\d{4}$/.test(digits)) {
+      const patch: Record<string, string> = { tenant_phone: row.reporter_phone };
+      const { data: u } = await supabase
+        .from("units")
+        .select("tenant_name")
+        .eq("id", unit_id)
+        .maybeSingle();
+      if (u && !(u.tenant_name && u.tenant_name.trim()) && row.reporter_name) {
+        patch.tenant_name = row.reporter_name;
+      }
+      await supabase.from("units").update(patch).eq("id", unit_id).then(undefined, () => {});
+    }
+  }
+
   // Seed the timeline with a creation event.
   await supabase.from("work_order_updates").insert({
     id: `wou-${row.id}-${Date.now()}-created`,
