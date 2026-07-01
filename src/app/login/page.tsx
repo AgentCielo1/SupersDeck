@@ -256,6 +256,11 @@ export default function LoginPage() {
           </>
         )}
       </div>
+
+      <p className="mt-6 px-2 text-center text-xs leading-relaxed text-ink-400">
+        For internal building-operations and informational use only. SupersDeck
+        is not a substitute for legal, compliance, or financial advice.
+      </p>
     </div>
   );
 }
