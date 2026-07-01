@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.0",
+    "@sentry/nextjs": "^10.62.0",
     "@supabase/ssr": "0.5.1",
     "@supabase/supabase-js": "2.45.0",
     "clsx": "2.1.1",
