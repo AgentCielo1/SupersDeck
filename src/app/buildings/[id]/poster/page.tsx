@@ -4,11 +4,15 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { QrPoster } from "@workorder/kit/qr/QrPoster";
+import { VoicePoster } from "@workorder/kit/qr/VoicePoster";
 import { publicBaseUrl } from "@/lib/format";
 
-// Printable QR lobby poster. The poster UI lives in the shared @workorder/kit;
-// this page just resolves the building + the canonical intake URL and hands
-// them to <QrPoster>.
+// 24/7 AI voice-assistant line — same work-order queue as the QR intake.
+const VOICE_PHONE = "959-224-9331";
+
+// Printable lobby posters. The poster UIs live in the shared @workorder/kit;
+// this page resolves the building + canonical intake URL and lets staff pick a
+// QR poster (scan OR call) or a phone-only poster.
 export default function PosterPage() {
   const params = useParams<{ id: string }>();
   const buildingId = params?.id ?? "";
@@ -19,6 +23,7 @@ export default function PosterPage() {
   } | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [origin, setOrigin] = useState("");
+  const [mode, setMode] = useState<"qr" | "voice">("qr");
 
   useEffect(() => {
     setOrigin(publicBaseUrl());
@@ -60,19 +65,44 @@ export default function PosterPage() {
 
   return (
     <>
-      <div className="no-print mb-4">
+      <div className="no-print mb-4 flex flex-wrap items-center gap-3">
         <Link
           href="/buildings"
           className="rounded-md border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
         >
           ← Buildings
         </Link>
+        <div className="inline-flex overflow-hidden rounded-md border border-ink-200">
+          <button
+            type="button"
+            onClick={() => setMode("qr")}
+            className={`px-3 py-2 text-sm font-medium ${mode === "qr" ? "bg-brand-600 text-white" : "bg-white text-ink-600 hover:bg-ink-100"}`}
+          >
+            QR poster (scan or call)
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("voice")}
+            className={`px-3 py-2 text-sm font-medium ${mode === "voice" ? "bg-brand-600 text-white" : "bg-white text-ink-600 hover:bg-ink-100"}`}
+          >
+            Voice-only poster
+          </button>
+        </div>
       </div>
-      <QrPoster
-        building={{ name: building.name, address: building.address }}
-        intakeUrl={`${origin}/intake/${buildingId}`}
-        poweredBy="SupersDeck"
-      />
+      {mode === "qr" ? (
+        <QrPoster
+          building={{ name: building.name, address: building.address }}
+          intakeUrl={`${origin}/intake/${buildingId}`}
+          voicePhone={VOICE_PHONE}
+          poweredBy="SupersDeck"
+        />
+      ) : (
+        <VoicePoster
+          building={{ name: building.name, address: building.address }}
+          voicePhone={VOICE_PHONE}
+          poweredBy="SupersDeck"
+        />
+      )}
     </>
   );
 }

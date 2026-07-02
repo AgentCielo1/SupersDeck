@@ -11,13 +11,25 @@ import { qrDataUrl } from "./qr";
 //  clean PDF. Backend-agnostic: building name/address + the canonical intake
 //  URL come in as props — the app resolves those (it knows its own routing and
 //  canonical base URL). EN / ES / ZH / RU each toggle independently.
+//
+//  Optional `voicePhone` adds a "Prefer to call?" band: tenants who can't or
+//  won't scan can dial the 24/7 AI assistant, which captures the same work
+//  order. Both channels land in the same queue.
 // =============================================================================
 
 type LangCode = "en" | "es" | "zh" | "ru";
 
 const LANGUAGE_PACK: Record<
   LangCode,
-  { name: string; title: string; scanHeading: string; steps: string[]; emergency: string }
+  {
+    name: string;
+    title: string;
+    scanHeading: string;
+    steps: string[];
+    emergency: string;
+    callHeading: string;
+    callNote: string;
+  }
 > = {
   en: {
     name: "English",
@@ -30,6 +42,8 @@ const LANGUAGE_PACK: Record<
       "Fill out the short form. Your super will get it.",
     ],
     emergency: "Emergency? Call 911 or 311 first.",
+    callHeading: "Prefer to call?",
+    callNote: "24/7 assistant — describe the repair in any language; your super gets a work order.",
   },
   es: {
     name: "Español",
@@ -42,6 +56,8 @@ const LANGUAGE_PACK: Record<
       "Llene el formulario. Su súper lo recibirá.",
     ],
     emergency: "¿Emergencia? Llame primero al 911 o al 311.",
+    callHeading: "¿Prefiere llamar?",
+    callNote: "Asistente 24/7 — describa la reparación en cualquier idioma; su súper recibirá una orden.",
   },
   zh: {
     name: "中文",
@@ -54,6 +70,8 @@ const LANGUAGE_PACK: Record<
       "填写简短表单。管理员会收到。",
     ],
     emergency: "紧急情况？请先拨打 911 或 311。",
+    callHeading: "想打电话？",
+    callNote: "24/7 助手——用任何语言描述维修，管理员会收到工单。",
   },
   ru: {
     name: "Русский",
@@ -66,20 +84,30 @@ const LANGUAGE_PACK: Record<
       "Заполните короткую форму. Управдом её получит.",
     ],
     emergency: "Экстренная ситуация? Сначала позвоните 911 или 311.",
+    callHeading: "Хотите позвонить?",
+    callNote: "Помощник 24/7 — опишите проблему на любом языке; управдом получит заявку.",
   },
 };
 
 const ALL_LANGS: LangCode[] = ["en", "es", "zh", "ru"];
 
+/** Format a US 10-digit string as (AAA) BBB-CCCC for tel: links. */
+function telHref(phone: string): string {
+  const d = phone.replace(/\D/g, "");
+  return d.length === 10 ? `tel:+1${d}` : `tel:${d}`;
+}
+
 export interface QrPosterProps {
   building: { name: string; address: string };
   /** Canonical, public intake URL the QR encodes (app resolves this). */
   intakeUrl: string;
+  /** Optional 24/7 voice-assistant number, e.g. "959-224-9331". Adds a call band. */
+  voicePhone?: string;
   /** Footer attribution, e.g. "SupersDeck". Hidden if omitted. */
   poweredBy?: string;
 }
 
-export function QrPoster({ building, intakeUrl, poweredBy }: QrPosterProps) {
+export function QrPoster({ building, intakeUrl, voicePhone, poweredBy }: QrPosterProps) {
   const [qrSrc, setQrSrc] = useState<string>("");
   const [superName, setSuperName] = useState("");
   const [superPhone, setSuperPhone] = useState("");
@@ -228,7 +256,22 @@ export function QrPoster({ building, intakeUrl, poweredBy }: QrPosterProps) {
           ))}
         </div>
 
-        <div className={`${compact ? "mt-5" : "mt-8"} rounded-md border-2 border-red-600 bg-red-50 p-3 text-center`}>
+        {voicePhone && (
+          <div className={`${compact ? "mt-5" : "mt-7"} rounded-md border-2 border-blue-600 bg-blue-50 p-3 text-center`}>
+            <div className="text-sm font-semibold text-blue-900">
+              {activeLangs.map((code) => LANGUAGE_PACK[code].callHeading).join("  ·  ")}
+            </div>
+            <a
+              href={telHref(voicePhone)}
+              className={`mt-1 block font-bold tracking-wide text-blue-800 ${compact ? "text-[26px]" : "text-[34px]"}`}
+            >
+              📞 {voicePhone}
+            </a>
+            <div className="mt-1 text-xs text-blue-800">{LANGUAGE_PACK[activeLangs[0]].callNote}</div>
+          </div>
+        )}
+
+        <div className={`${compact ? "mt-4" : "mt-6"} rounded-md border-2 border-red-600 bg-red-50 p-3 text-center`}>
           {activeLangs.map((code, idx) => (
             <div
               key={code}
@@ -252,7 +295,7 @@ export function QrPoster({ building, intakeUrl, poweredBy }: QrPosterProps) {
         )}
 
         {poweredBy && (
-          <div className="mt-10 text-center text-[10px] uppercase tracking-widest text-zinc-400">
+          <div className="mt-8 text-center text-[10px] uppercase tracking-widest text-zinc-400">
             Powered by {poweredBy}
           </div>
         )}
