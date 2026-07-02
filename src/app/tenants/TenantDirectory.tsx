@@ -10,6 +10,10 @@ export type DirRow = {
   apt: string;
   tenant: string | null;
   phone: string | null;
+  phone2: string | null;
+  ecName: string | null;
+  ecRelation: string | null;
+  ecPhone: string | null;
   leaseEnd: string | null;
   occupied: boolean;
 };
@@ -22,6 +26,17 @@ function aptKey(label: string): [number, string] {
 
 const inputCls =
   "w-full rounded-md border border-ink-200 px-2 py-1 text-sm focus:border-brand-400 focus:outline-none";
+
+const blankDraft = {
+  tenant: "",
+  phone: "",
+  phone2: "",
+  ecName: "",
+  ecRelation: "",
+  ecPhone: "",
+  occupied: false,
+  leaseEnd: "",
+};
 
 export default function TenantDirectory({
   rows,
@@ -36,16 +51,34 @@ export default function TenantDirectory({
   const [err, setErr] = useState("");
 
   const [editId, setEditId] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ tenant: "", phone: "", occupied: false, leaseEnd: "" });
+  const [draft, setDraft] = useState({ ...blankDraft });
 
   const [adding, setAdding] = useState(false);
-  const blankAdd = { buildingId: buildings[0]?.id ?? "", apt: "", tenant: "", phone: "" };
+  const blankAdd = {
+    buildingId: buildings[0]?.id ?? "",
+    apt: "",
+    tenant: "",
+    phone: "",
+    phone2: "",
+    ecName: "",
+    ecRelation: "",
+    ecPhone: "",
+  };
   const [add, setAdd] = useState(blankAdd);
 
   function startEdit(r: DirRow) {
     setErr("");
     setEditId(r.id);
-    setDraft({ tenant: r.tenant ?? "", phone: r.phone ?? "", occupied: r.occupied, leaseEnd: r.leaseEnd ?? "" });
+    setDraft({
+      tenant: r.tenant ?? "",
+      phone: r.phone ?? "",
+      phone2: r.phone2 ?? "",
+      ecName: r.ecName ?? "",
+      ecRelation: r.ecRelation ?? "",
+      ecPhone: r.ecPhone ?? "",
+      occupied: r.occupied,
+      leaseEnd: r.leaseEnd ?? "",
+    });
   }
 
   async function call(url: string, method: string, body?: unknown) {
@@ -74,6 +107,10 @@ export default function TenantDirectory({
     const ok = await call(`/api/units/${id}`, "PATCH", {
       tenant_name: draft.tenant.trim() || null,
       tenant_phone: draft.phone.trim() || null,
+      tenant_phone2: draft.phone2.trim() || null,
+      emergency_contact_name: draft.ecName.trim() || null,
+      emergency_contact_relation: draft.ecRelation.trim() || null,
+      emergency_contact_phone: draft.ecPhone.trim() || null,
       occupied: draft.occupied,
       lease_end: draft.leaseEnd || null,
     });
@@ -84,8 +121,18 @@ export default function TenantDirectory({
   }
 
   async function vacate(r: DirRow) {
-    if (!confirm(`Vacate ${r.building} ${r.apt}? Clears the tenant + marks it vacant.`)) return;
-    if (await call(`/api/units/${r.id}`, "PATCH", { tenant_name: null, tenant_phone: null, occupied: false }))
+    if (!confirm(`Vacate ${r.building} ${r.apt}? Clears the tenant + contacts and marks it vacant.`)) return;
+    if (
+      await call(`/api/units/${r.id}`, "PATCH", {
+        tenant_name: null,
+        tenant_phone: null,
+        tenant_phone2: null,
+        emergency_contact_name: null,
+        emergency_contact_relation: null,
+        emergency_contact_phone: null,
+        occupied: false,
+      })
+    )
       router.refresh();
   }
 
@@ -101,6 +148,10 @@ export default function TenantDirectory({
       label: add.apt.trim(),
       tenant_name: add.tenant.trim() || null,
       tenant_phone: add.phone.trim() || null,
+      tenant_phone2: add.phone2.trim() || null,
+      emergency_contact_name: add.ecName.trim() || null,
+      emergency_contact_relation: add.ecRelation.trim() || null,
+      emergency_contact_phone: add.ecPhone.trim() || null,
     });
     if (ok) {
       setAdding(false);
@@ -112,7 +163,10 @@ export default function TenantDirectory({
   const indexed = useMemo(
     () =>
       rows
-        .map((r) => ({ r, s: `${r.building} ${r.apt} ${r.tenant ?? ""} ${r.phone ?? ""}`.toLowerCase() }))
+        .map((r) => ({
+          r,
+          s: `${r.building} ${r.apt} ${r.tenant ?? ""} ${r.phone ?? ""} ${r.phone2 ?? ""} ${r.ecName ?? ""} ${r.ecPhone ?? ""}`.toLowerCase(),
+        }))
         .sort((a, b) => {
           if (a.r.building !== b.r.building) return a.r.building.localeCompare(b.r.building);
           const [af, al] = aptKey(a.r.apt);
@@ -130,7 +184,7 @@ export default function TenantDirectory({
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search a name, or a building + apartment (e.g. “Building 1 5B” or “Watson”)"
+          placeholder="Search a name, phone, emergency contact, or building + apartment (e.g. “Building 1 5B” or “Watson”)"
           className="min-w-[260px] flex-1 rounded-md border border-ink-200 bg-white px-3 py-2 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
         />
         <button
@@ -152,40 +206,59 @@ export default function TenantDirectory({
             </select>
           </label>
           <label className="text-xs text-ink-500"><span className="mb-1 block">Apartment</span>
-            <input value={add.apt} onChange={(e) => setAdd({ ...add, apt: e.target.value })} placeholder="5B" className="w-24 rounded-md border border-ink-200 px-2 py-1.5 text-sm" /></label>
-          <label className="text-xs text-ink-500"><span className="mb-1 block">Tenant (optional)</span>
+            <input value={add.apt} onChange={(e) => setAdd({ ...add, apt: e.target.value })} placeholder="5B" className="w-20 rounded-md border border-ink-200 px-2 py-1.5 text-sm" /></label>
+          <label className="text-xs text-ink-500"><span className="mb-1 block">Tenant</span>
             <input value={add.tenant} onChange={(e) => setAdd({ ...add, tenant: e.target.value })} className="rounded-md border border-ink-200 px-2 py-1.5 text-sm" /></label>
-          <label className="text-xs text-ink-500"><span className="mb-1 block">Phone (optional)</span>
-            <input value={add.phone} onChange={(e) => setAdd({ ...add, phone: e.target.value })} className="rounded-md border border-ink-200 px-2 py-1.5 text-sm" /></label>
+          <label className="text-xs text-ink-500"><span className="mb-1 block">Phone</span>
+            <input value={add.phone} onChange={(e) => setAdd({ ...add, phone: e.target.value })} className="w-32 rounded-md border border-ink-200 px-2 py-1.5 text-sm" /></label>
+          <label className="text-xs text-ink-500"><span className="mb-1 block">2nd number</span>
+            <input value={add.phone2} onChange={(e) => setAdd({ ...add, phone2: e.target.value })} className="w-32 rounded-md border border-ink-200 px-2 py-1.5 text-sm" /></label>
+          <label className="text-xs text-ink-500"><span className="mb-1 block">Emergency contact</span>
+            <input value={add.ecName} onChange={(e) => setAdd({ ...add, ecName: e.target.value })} placeholder="Name" className="w-36 rounded-md border border-ink-200 px-2 py-1.5 text-sm" /></label>
+          <label className="text-xs text-ink-500"><span className="mb-1 block">Relation</span>
+            <input value={add.ecRelation} onChange={(e) => setAdd({ ...add, ecRelation: e.target.value })} placeholder="Daughter" className="w-24 rounded-md border border-ink-200 px-2 py-1.5 text-sm" /></label>
+          <label className="text-xs text-ink-500"><span className="mb-1 block">Contact phone</span>
+            <input value={add.ecPhone} onChange={(e) => setAdd({ ...add, ecPhone: e.target.value })} className="w-32 rounded-md border border-ink-200 px-2 py-1.5 text-sm" /></label>
           <button type="submit" disabled={busy || !add.apt.trim()} className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">Add</button>
           <button type="button" onClick={() => setAdding(false)} className="px-2 py-1.5 text-sm text-ink-400">Cancel</button>
         </form>
       )}
       {err && <p className="text-xs text-danger-800">{err}</p>}
 
-      <div className="overflow-hidden rounded-xl2 border border-ink-200 bg-white">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-xl2 border border-ink-200 bg-white">
+        <table className="w-full min-w-[820px] text-sm">
           <thead className="border-b border-ink-200 bg-ink-50 text-left text-xs uppercase tracking-wide text-ink-400">
             <tr>
               <th className="px-3 py-2">Building</th>
               <th className="px-3 py-2">Apt</th>
               <th className="px-3 py-2">Tenant</th>
               <th className="px-3 py-2">Phone</th>
+              <th className="px-3 py-2">Emergency contact</th>
               <th className="px-3 py-2">Lease ends</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {matches.length === 0 && (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-sm text-ink-400">No matches.</td></tr>
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-ink-400">No matches.</td></tr>
             )}
             {matches.map(({ r }) =>
               editId === r.id ? (
-                <tr key={r.id} className="border-b border-ink-100 bg-brand-50/40 align-middle last:border-0">
+                <tr key={r.id} className="border-b border-ink-100 bg-brand-50/40 align-top last:border-0">
                   <td className="px-3 py-2 text-xs text-ink-600">{r.building}</td>
                   <td className="px-3 py-2 font-mono text-xs">{r.apt}</td>
                   <td className="px-3 py-2"><input autoFocus value={draft.tenant} onChange={(e) => setDraft({ ...draft, tenant: e.target.value })} placeholder="Tenant name" className={inputCls} /></td>
-                  <td className="px-3 py-2"><input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} placeholder="Phone" className={inputCls} /></td>
+                  <td className="px-3 py-2">
+                    <input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} placeholder="Primary phone" className={inputCls} />
+                    <input value={draft.phone2} onChange={(e) => setDraft({ ...draft, phone2: e.target.value })} placeholder="2nd number (cell)" className={`${inputCls} mt-1`} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input value={draft.ecName} onChange={(e) => setDraft({ ...draft, ecName: e.target.value })} placeholder="Contact name" className={inputCls} />
+                    <div className="mt-1 flex gap-1">
+                      <input value={draft.ecRelation} onChange={(e) => setDraft({ ...draft, ecRelation: e.target.value })} placeholder="Relation" className={`${inputCls} w-28`} />
+                      <input value={draft.ecPhone} onChange={(e) => setDraft({ ...draft, ecPhone: e.target.value })} placeholder="Contact phone" className={inputCls} />
+                    </div>
+                  </td>
                   <td className="px-3 py-2">
                     <input type="date" value={draft.leaseEnd} onChange={(e) => setDraft({ ...draft, leaseEnd: e.target.value })} className={inputCls} />
                     <label className="mt-1 flex items-center gap-1 text-xs text-ink-500"><input type="checkbox" checked={draft.occupied} onChange={(e) => setDraft({ ...draft, occupied: e.target.checked })} /> occupied</label>
@@ -196,11 +269,23 @@ export default function TenantDirectory({
                   </td>
                 </tr>
               ) : (
-                <tr key={r.id} className="border-b border-ink-100 align-middle last:border-0 hover:bg-ink-50/50">
+                <tr key={r.id} className="border-b border-ink-100 align-top last:border-0 hover:bg-ink-50/50">
                   <td className="px-3 py-2 text-xs text-ink-600">{r.building}</td>
                   <td className="px-3 py-2 font-mono text-xs font-medium text-ink-900">{r.apt}</td>
                   <td className="px-3 py-2 text-ink-900">{r.tenant ?? <span className="text-ink-300">{r.occupied ? "(occupied)" : "(vacant)"}</span>}</td>
-                  <td className="px-3 py-2 text-xs">{r.phone ? <a href={`tel:${r.phone}`} className="text-brand hover:underline">{r.phone}</a> : <span className="text-ink-300">—</span>}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {r.phone ? <a href={`tel:${r.phone}`} className="text-brand hover:underline">{r.phone}</a> : <span className="text-ink-300">—</span>}
+                    {r.phone2 && <div className="mt-0.5 text-ink-400"><a href={`tel:${r.phone2}`} className="hover:underline">{r.phone2}</a></div>}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {r.ecName || r.ecPhone ? (
+                      <div>
+                        {r.ecName && <span className="text-ink-900">{r.ecName}</span>}
+                        {r.ecRelation && <span className="text-ink-400"> · {r.ecRelation}</span>}
+                        {r.ecPhone && <div className="mt-0.5"><a href={`tel:${r.ecPhone}`} className="text-brand hover:underline">{r.ecPhone}</a></div>}
+                      </div>
+                    ) : <span className="text-ink-300">—</span>}
+                  </td>
                   <td className="px-3 py-2 text-xs text-ink-600">{r.leaseEnd ? new Date(r.leaseEnd).toLocaleDateString() : "—"}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-right text-xs">
                     <button type="button" onClick={() => startEdit(r)} className="text-brand hover:underline">Edit</button>
