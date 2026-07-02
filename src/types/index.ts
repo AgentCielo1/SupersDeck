@@ -59,6 +59,10 @@ export interface Unit {
   occupied: boolean;
   tenant_name?: string;
   tenant_phone?: string;
+  tenant_phone2?: string;            // 2nd number (directory Work/Cell line)
+  emergency_contact_name?: string;   // directory "Contact #1"
+  emergency_contact_relation?: string;
+  emergency_contact_phone?: string;
   is_section8: boolean;
   has_children_under_6: boolean;     // triggers LL1 lead paint
   has_children_under_11: boolean;    // triggers window guards

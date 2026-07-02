@@ -25,6 +25,10 @@ export default async function TenantsPage() {
     apt: u.label,
     tenant: u.tenant_name ?? null,
     phone: u.tenant_phone ?? null,
+    phone2: u.tenant_phone2 ?? null,
+    ecName: u.emergency_contact_name ?? null,
+    ecRelation: u.emergency_contact_relation ?? null,
+    ecPhone: u.emergency_contact_phone ?? null,
     leaseEnd: u.lease_end ?? null,
     occupied: u.occupied,
   }));

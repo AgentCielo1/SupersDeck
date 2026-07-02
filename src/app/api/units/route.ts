@@ -9,6 +9,10 @@ import { getServerSupabase } from "@/lib/supabase";
 const ALLOWED = new Set([
   "tenant_name",
   "tenant_phone",
+  "tenant_phone2",
+  "emergency_contact_name",
+  "emergency_contact_relation",
+  "emergency_contact_phone",
   "occupied",
   "lease_start",
   "lease_end",
