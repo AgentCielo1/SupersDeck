@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
+import type { ComplianceStatus } from "@workorder/kit/contractor/contract";
 import {
-  coiStatus,
-  isBlocked,
-  type ComplianceDocument,
-} from "@workorder/kit/contractor/contract";
-import type { ComplianceDocumentRow } from "@/types/contractors";
+  deriveCompanyStatus,
+  gateBlocks,
+  blockedReason,
+  blockedMessage,
+  recordBlockedAttempt,
+} from "@/lib/contractor-gate";
 
 // =============================================================================
 //  GET  /api/contractor-visits        — who's on site now (?building=ID)
@@ -15,6 +17,7 @@ import type { ComplianceDocumentRow } from "@/types/contractors";
 //  The compliance gate is enforced HERE, server-side: we re-derive the
 //  company's compliance status from compliance_documents and block an expired
 //  COI (when gate_enforced). Never trust a client claim of "compliant".
+//  Gate logic is shared with the public QR route via src/lib/contractor-gate.
 // =============================================================================
 
 export async function GET(request: Request) {
@@ -33,22 +36,6 @@ export async function GET(request: Request) {
   const { data, error } = await query.order("sign_in_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data ?? []);
-}
-
-function rowToDoc(d: ComplianceDocumentRow): ComplianceDocument {
-  return {
-    docType: d.doc_type,
-    carrier: d.carrier ?? undefined,
-    policyNumber: d.policy_number ?? undefined,
-    glPerOccurrence: d.gl_per_occurrence ?? undefined,
-    glAggregate: d.gl_aggregate ?? undefined,
-    issuingAgency: d.issuing_agency ?? undefined,
-    effectiveDate: d.effective_date ?? undefined,
-    expiryDate: d.expiry_date ?? undefined,
-    additionalInsured: d.additional_insured,
-    exemptionType: d.exemption_type ?? undefined,
-    fileUrl: d.file_url ?? undefined,
-  };
 }
 
 export async function POST(request: Request) {
@@ -80,25 +67,20 @@ export async function POST(request: Request) {
   const gateEnforced = body.gate_enforced ?? true;
 
   // --- compliance gate: derive status from the company's documents ---
-  let status: ReturnType<typeof coiStatus> = "missing";
+  let status: ComplianceStatus = "missing";
   if (body.company_id) {
-    const { data: docs } = await supabase
-      .from("compliance_documents")
-      .select("*")
-      .eq("company_id", body.company_id);
-    status = coiStatus(((docs ?? []) as ComplianceDocumentRow[]).map(rowToDoc));
+    status = await deriveCompanyStatus(supabase, body.company_id);
   }
 
-  if (isBlocked(status, gateEnforced)) {
-    await supabase.from("contractor_blocked_attempts").insert({
-      id: `blk-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+  if (gateBlocks(status, gateEnforced)) {
+    await recordBlockedAttempt(supabase, {
       company_id: body.company_id ?? null,
       inline_name: body.inline_name ?? null,
       building_id: body.building_id,
-      reason: "GL insurance expired / not on file",
+      reason: blockedReason(status),
     });
     return NextResponse.json(
-      { error: "blocked", reason: "Company insurance is expired.", status },
+      { error: "blocked", reason: blockedMessage(status), status },
       { status: 403 }
     );
   }
