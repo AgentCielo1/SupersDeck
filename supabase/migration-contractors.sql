@@ -82,6 +82,11 @@ create index if not exists idx_visits_onsite on contractor_visits (building_id)
   where sign_out_at is null;
 -- Backfill for DBs migrated before `phone` was added to contractor_visits above.
 alter table contractor_visits add column if not exists phone text;
+-- Idempotency key for offline-queue replays: the client sends a UUID per
+-- queued sign-in so a replay whose first attempt landed isn't inserted twice.
+alter table contractor_visits add column if not exists client_id text;
+create unique index if not exists idx_visits_client_id on contractor_visits (client_id)
+  where client_id is not null;
 
 -- ----------------------------- blocked attempts (audit) -------------------
 create table if not exists contractor_blocked_attempts (
