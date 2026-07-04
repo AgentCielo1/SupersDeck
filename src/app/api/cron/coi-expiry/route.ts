@@ -27,7 +27,7 @@ const FROM_EMAIL =
 
 function authorized(request: NextRequest): boolean {
   const expected = process.env.CRON_SECRET;
-  if (!expected) return true;
+  if (!expected) return false;
   return request.headers.get("authorization") === `Bearer ${expected}`;
 }
 
