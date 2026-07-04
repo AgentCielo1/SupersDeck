@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
+import { getCurrentUserProfile } from "@/lib/supabase-server";
 
 // =============================================================================
 //  GET  /api/compliance-documents?expiringInDays=30 — manager action list
@@ -28,7 +29,19 @@ export async function GET(request: Request) {
   return NextResponse.json(data ?? []);
 }
 
+const WRITER_ROLES = new Set(["admin", "super", "manager"]);
+
 export async function POST(request: Request) {
+  // Compliance docs gate contractor entry — only roles that manage vendors may
+  // write them (mirrors the "cl write compdocs" RLS policy).
+  const me = await getCurrentUserProfile();
+  if (!me) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
+  if (!WRITER_ROLES.has(me.role)) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
+
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
