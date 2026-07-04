@@ -14,6 +14,15 @@ export interface QueuedSignIn {
   buildingCode: string;
   payload: Record<string, unknown>;
   queuedAt: string;
+  /** Idempotency key — lets the server drop a replay that already landed. */
+  clientId?: string;
+}
+
+function newClientId(): string {
+  // crypto.randomUUID needs a secure context; fall back for plain-http LANs.
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function read(): QueuedSignIn[] {
@@ -34,7 +43,12 @@ function write(q: QueuedSignIn[]): void {
 
 export function enqueueSignIn(buildingCode: string, payload: Record<string, unknown>): void {
   const q = read();
-  q.push({ buildingCode, payload, queuedAt: new Date().toISOString() });
+  q.push({
+    buildingCode,
+    payload,
+    queuedAt: new Date().toISOString(),
+    clientId: newClientId(),
+  });
   write(q);
 }
 
@@ -42,30 +56,46 @@ export function queueLength(): number {
   return read().length;
 }
 
+// flushQueue can be triggered by both page load and the `online` event —
+// guard against two flushes replaying the same entries concurrently.
+let flushing = false;
+
 /** Replay queued sign-ins. Drops entries that succeed OR are gate-blocked
  *  (403) so we don't retry a permanently-blocked contractor forever. Keeps
  *  network failures for the next attempt. Returns how many were cleared. */
 export async function flushQueue(): Promise<number> {
-  const q = read();
-  if (q.length === 0) return 0;
+  if (flushing) return 0;
+  flushing = true;
+  try {
+    const q = read();
+    if (q.length === 0) return 0;
 
-  const remaining: QueuedSignIn[] = [];
-  let cleared = 0;
+    const remaining: QueuedSignIn[] = [];
+    let cleared = 0;
 
-  for (const item of q) {
-    try {
-      const res = await fetch(`/api/public/sign-in/${item.buildingCode}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item.payload),
-      });
-      if (res.ok || res.status === 403) cleared++;
-      else remaining.push(item);
-    } catch {
-      remaining.push(item);
+    for (const item of q) {
+      try {
+        const res = await fetch(`/api/public/sign-in/${item.buildingCode}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...item.payload,
+            // Original tap time — the server uses it as sign_in_at if sane.
+            queued_at: item.queuedAt,
+            // Idempotency key — the server dedupes replays that already landed.
+            client_id: item.clientId,
+          }),
+        });
+        if (res.ok || res.status === 403) cleared++;
+        else remaining.push(item);
+      } catch {
+        remaining.push(item);
+      }
     }
-  }
 
-  write(remaining);
-  return cleared;
+    write(remaining);
+    return cleared;
+  } finally {
+    flushing = false;
+  }
 }

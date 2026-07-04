@@ -82,6 +82,11 @@ create index if not exists idx_visits_onsite on contractor_visits (building_id)
   where sign_out_at is null;
 -- Backfill for DBs migrated before `phone` was added to contractor_visits above.
 alter table contractor_visits add column if not exists phone text;
+-- Idempotency key for offline-queue replays: the client sends a UUID per
+-- queued sign-in so a replay whose first attempt landed isn't inserted twice.
+alter table contractor_visits add column if not exists client_id text;
+create unique index if not exists idx_visits_client_id on contractor_visits (client_id)
+  where client_id is not null;
 
 -- ----------------------------- blocked attempts (audit) -------------------
 create table if not exists contractor_blocked_attempts (
@@ -122,28 +127,38 @@ alter table contractor_visits          enable row level security;
 alter table contractor_blocked_attempts enable row level security;
 
 -- read: any authenticated user
+drop policy if exists "cl read contractors" on contractors;
 create policy "cl read contractors"  on contractors                for select using (get_my_role() <> 'anon');
+drop policy if exists "cl read compdocs" on compliance_documents;
 create policy "cl read compdocs"     on compliance_documents       for select using (get_my_role() <> 'anon');
+drop policy if exists "cl read visits" on contractor_visits;
 create policy "cl read visits"       on contractor_visits          for select using (get_my_role() <> 'anon');
+drop policy if exists "cl read blocked" on contractor_blocked_attempts;
 create policy "cl read blocked"      on contractor_blocked_attempts for select using (get_my_role() <> 'anon');
 
 -- write contractors + compliance docs: admin/super/manager
+drop policy if exists "cl write contractors" on contractors;
 create policy "cl write contractors" on contractors          for all
   using (get_my_role() in ('admin','super','manager'))
   with check (get_my_role() in ('admin','super','manager'));
+drop policy if exists "cl write compdocs" on compliance_documents;
 create policy "cl write compdocs"    on compliance_documents for all
   using (get_my_role() in ('admin','super','manager'))
   with check (get_my_role() in ('admin','super','manager'));
 
 -- visits: porters can sign people in/out too
+drop policy if exists "cl insert visits" on contractor_visits;
 create policy "cl insert visits" on contractor_visits for insert
   with check (get_my_role() in ('admin','super','manager','porter'));
+drop policy if exists "cl update visits" on contractor_visits;
 create policy "cl update visits" on contractor_visits for update
   using (get_my_role() in ('admin','super','manager','porter'));
+drop policy if exists "cl delete visits" on contractor_visits;
 create policy "cl delete visits" on contractor_visits for delete
   using (get_my_role() in ('admin','super','manager'));
 
 -- blocked attempts: written by the service-role API; admins/super can also insert
+drop policy if exists "cl insert blocked" on contractor_blocked_attempts;
 create policy "cl insert blocked" on contractor_blocked_attempts for insert
   with check (get_my_role() in ('admin','super','manager','porter'));
 
