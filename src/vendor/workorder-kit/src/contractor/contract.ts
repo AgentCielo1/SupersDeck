@@ -74,13 +74,21 @@ export const DEFAULT_REMINDER_DAYS = [90, 60, 30, 10];
 export const DEFAULT_REQUIRED_DOCS: ComplianceDocType[] = ["gl_coi"];
 
 export function daysUntil(iso: string, now: Date = new Date()): number {
-  return Math.floor((new Date(iso).getTime() - now.getTime()) / 86_400_000);
+  // Date-only strings parse as UTC midnight, which reads as "yesterday evening"
+  // in New York. Compare calendar dates (both truncated to date-only) so a COI
+  // stays valid through its printed expiry date.
+  const d = new Date(iso);
+  const expiryUtc = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((expiryUtc - todayUtc) / 86_400_000);
 }
 
 /**
  * Derive a single compliance status from a set of documents.
  * `missing` if any required doc type is absent (or has no expiry); otherwise
- * the status of the soonest-expiring required document.
+ * take the LATEST-expiring document per required type (renewals are pure
+ * inserts, so older rows must not drag the status down) and report the worst
+ * of those.
  */
 export function coiStatus(
   docs: ComplianceDocument[],
@@ -95,9 +103,13 @@ export function coiStatus(
   );
   if (!hasAllRequired) return "missing";
 
-  const expiries = docs
-    .filter((d) => required.includes(d.docType) && d.expiryDate)
-    .map((d) => daysUntil(d.expiryDate as string, now));
+  const expiries = required.map((r) =>
+    Math.max(
+      ...docs
+        .filter((d) => d.docType === r && d.expiryDate)
+        .map((d) => daysUntil(d.expiryDate as string, now))
+    )
+  );
   if (expiries.length === 0) return "missing";
 
   const min = Math.min(...expiries);
