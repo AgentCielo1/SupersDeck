@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabase";
-import {
-  coiStatus,
-  isBlocked,
-  type ComplianceDocument,
-  type ComplianceStatus,
-} from "@workorder/kit/contractor/contract";
+import { coiStatus, type ComplianceStatus } from "@workorder/kit/contractor/contract";
 import type { ComplianceDocumentRow } from "@/types/contractors";
+import {
+  rowToDoc,
+  deriveCompanyStatus,
+  gateBlocks,
+  blockedReason,
+  blockedMessage,
+  recordBlockedAttempt,
+} from "@/lib/contractor-gate";
 
 // =============================================================================
 //  PUBLIC contractor sign-in (QR target) — no auth.
@@ -36,15 +39,6 @@ function rateLimited(ip: string): boolean {
   }
   bucket.count += 1;
   return bucket.count > RATE_LIMIT;
-}
-
-function rowToDoc(d: ComplianceDocumentRow): ComplianceDocument {
-  return {
-    docType: d.doc_type,
-    expiryDate: d.expiry_date ?? undefined,
-    glPerOccurrence: d.gl_per_occurrence ?? undefined,
-    glAggregate: d.gl_aggregate ?? undefined,
-  };
 }
 
 export async function GET(
@@ -127,29 +121,57 @@ export async function POST(
 
   // This route is unauthenticated, so the gate is ALWAYS on — never trust a
   // client-supplied flag here. Staff can bypass via the authenticated route.
+  // Note: compliance is evaluated at the time the request REACHES us — for an
+  // offline replay that's replay time, not tap time. That's the honest choice:
+  // we can only gate on what we know when the request actually arrives.
   const gateEnforced = true;
 
   let status: ComplianceStatus = "missing";
   if (body.company_id) {
-    const { data: docs } = await supabase
-      .from("compliance_documents")
-      .select("*")
-      .eq("company_id", body.company_id);
-    status = coiStatus(((docs ?? []) as ComplianceDocumentRow[]).map(rowToDoc));
+    status = await deriveCompanyStatus(supabase, body.company_id);
   }
 
-  if (isBlocked(status, gateEnforced)) {
-    await supabase.from("contractor_blocked_attempts").insert({
-      id: `blk-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+  if (gateBlocks(status, gateEnforced)) {
+    await recordBlockedAttempt(supabase, {
       company_id: body.company_id ?? null,
       inline_name,
       building_id,
-      reason: "GL insurance expired / not on file",
+      reason: blockedReason(status),
     });
     return NextResponse.json(
-      { error: "blocked", reason: "Company insurance is expired.", status },
+      { error: "blocked", reason: blockedMessage(status), status },
       { status: 403 }
     );
+  }
+
+  // Idempotency for offline-queue replays: the client sends a UUID per queued
+  // entry, so a replay whose first attempt actually landed (response lost in
+  // the signal gap) returns the existing visit instead of inserting twice.
+  const clientId =
+    typeof body.client_id === "string" && body.client_id.length > 0
+      ? body.client_id.slice(0, 64)
+      : null;
+  if (clientId) {
+    const { data: existing } = await supabase
+      .from("contractor_visits")
+      .select("*")
+      .eq("client_id", clientId)
+      .maybeSingle();
+    if (existing) {
+      return NextResponse.json({ visit: existing, status }, { status: 200 });
+    }
+  }
+
+  // Offline replays carry the original tap time as queued_at — use it as
+  // sign_in_at when it's sane (parses, in the past, at most 7 days old);
+  // otherwise fall back to the DB default of now().
+  let signInAt: string | null = null;
+  if (typeof body.queued_at === "string") {
+    const t = new Date(body.queued_at).getTime();
+    const nowMs = Date.now();
+    if (!Number.isNaN(t) && t <= nowMs && nowMs - t <= 7 * 86_400_000) {
+      signInAt = new Date(t).toISOString();
+    }
   }
 
   const visitId = `cv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -190,6 +212,8 @@ export async function POST(
     method: body.method ?? "qr",
     photo_url: photoUrl,
     compliance_status_at_entry: status,
+    client_id: clientId,
+    ...(signInAt ? { sign_in_at: signInAt } : {}),
   };
 
   const { data, error } = await supabase
