@@ -134,7 +134,7 @@ export function QrPoster({ building, intakeUrl, voicePhone, poweredBy }: QrPoste
           .no-print { display: none !important; }
           body { background: white !important; }
           .wo-poster { margin: 0 !important; padding: 0 !important; box-shadow: none !important; border: none !important; page-break-inside: avoid; }
-          @page { size: letter; margin: 0.5in; }
+          @page { size: letter; margin: 0.4in; }
         }
       `}</style>
 
@@ -217,24 +217,24 @@ export function QrPoster({ building, intakeUrl, voicePhone, poweredBy }: QrPoste
           })}
         </div>
 
-        <div className={`${compact ? "mt-4" : "mt-6"} flex flex-col items-center`}>
+        <div className={`${compact ? "mt-3" : "mt-5"} flex flex-col items-center`}>
           {qrSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={qrSrc} alt={`QR code for ${intakeUrl}`} className={compact ? "h-56 w-56" : "h-72 w-72"} />
+            <img src={qrSrc} alt={`QR code for ${intakeUrl}`} className={compact ? "h-44 w-44" : "h-60 w-60"} />
           ) : (
             <div
-              className={`flex ${compact ? "h-56 w-56" : "h-72 w-72"} items-center justify-center border border-dashed border-zinc-300 text-xs text-zinc-400`}
+              className={`flex ${compact ? "h-44 w-44" : "h-60 w-60"} items-center justify-center border border-dashed border-zinc-300 text-xs text-zinc-400`}
             >
               Generating QR…
             </div>
           )}
-          <div className="mt-4 break-all rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1.5 font-mono text-xs text-zinc-600">
+          <div className="mt-2 break-all rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1 font-mono text-[11px] text-zinc-600">
             {intakeUrl}
           </div>
         </div>
 
         <div
-          className={`${compact ? "mt-5" : "mt-8"} grid gap-4 text-center sm:gap-6 ${
+          className={`${compact ? "mt-3" : "mt-6"} grid gap-3 text-center sm:gap-5 ${
             activeLangs.length >= 2 ? "grid-cols-2" : "grid-cols-1"
           }`}
         >
@@ -257,7 +257,7 @@ export function QrPoster({ building, intakeUrl, voicePhone, poweredBy }: QrPoste
         </div>
 
         {voicePhone && (
-          <div className={`${compact ? "mt-5" : "mt-7"} rounded-md border-2 border-blue-600 bg-blue-50 p-3 text-center`}>
+          <div className={`${compact ? "mt-3" : "mt-5"} rounded-md border-2 border-blue-600 bg-blue-50 p-2.5 text-center`}>
             <div className="text-sm font-semibold text-blue-900">
               {activeLangs.map((code) => LANGUAGE_PACK[code].callHeading).join("  ·  ")}
             </div>
@@ -271,7 +271,7 @@ export function QrPoster({ building, intakeUrl, voicePhone, poweredBy }: QrPoste
           </div>
         )}
 
-        <div className={`${compact ? "mt-4" : "mt-6"} rounded-md border-2 border-red-600 bg-red-50 p-3 text-center`}>
+        <div className={`${compact ? "mt-3" : "mt-5"} rounded-md border-2 border-red-600 bg-red-50 p-2.5 text-center`}>
           {activeLangs.map((code, idx) => (
             <div
               key={code}
@@ -295,7 +295,7 @@ export function QrPoster({ building, intakeUrl, voicePhone, poweredBy }: QrPoste
         )}
 
         {poweredBy && (
-          <div className="mt-8 text-center text-[10px] uppercase tracking-widest text-zinc-400">
+          <div className="mt-4 text-center text-[10px] uppercase tracking-widest text-zinc-400">
             Powered by {poweredBy}
           </div>
         )}
