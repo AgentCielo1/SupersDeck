@@ -34,6 +34,9 @@ const PUBLIC_API_BY_METHOD: Array<{ method: string; prefix: string; exact?: bool
 ];
 
 function isPublic(pathname: string, method: string): boolean {
+  // Vercel cron invocations carry no session cookie — a /login redirect would
+  // silently kill them. The /api/cron/* routes authenticate via CRON_SECRET.
+  if (pathname.startsWith("/api/cron/")) return true;
   for (const p of PUBLIC_PATHS) {
     if (pathname === p || pathname.startsWith(p + "/")) return true;
   }

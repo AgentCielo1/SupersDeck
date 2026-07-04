@@ -13,7 +13,16 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/";
+  // Only follow same-site paths — anything else ("//evil.com", "https://…",
+  // "/\evil.com", "/a@b") would make this an open redirect.
+  const rawNext = url.searchParams.get("next") ?? "/";
+  const next =
+    rawNext.startsWith("/") &&
+    !rawNext.startsWith("//") &&
+    !rawNext.includes("@") &&
+    !rawNext.includes("\\")
+      ? rawNext
+      : "/";
 
   if (!code) {
     return NextResponse.redirect(new URL("/login?error=missing_code", request.url));
