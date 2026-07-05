@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { classifyCert } from "@/lib/classify-cert";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+const CertUploadSchema = z.object({
+  path: reqStr(500),
+  mime: optStr(100),
+  holder_name: optStr(300),
+});
 
 // =============================================================================
 //  POST /api/certifications/upload — classify an uploaded certificate photo
@@ -27,15 +35,11 @@ export async function POST(request: Request) {
   if (!supabase) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
   }
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const path = String(body.path ?? "");
+  const parsed = await parseJson(request, CertUploadSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
+  const path = body.path;
   const mime = String(body.mime ?? "image/jpeg");
-  if (!path) return NextResponse.json({ error: "path is required" }, { status: 400 });
 
   // Best-effort classification (images only — Claude vision).
   let cls: Awaited<ReturnType<typeof classifyCert>> | null = null;

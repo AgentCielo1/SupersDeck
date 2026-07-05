@@ -10,6 +10,25 @@ import {
   recordBlockedAttempt,
 } from "@/lib/contractor-gate";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+import { z } from "zod";
+
+// building_id required; the "contractor_id or inline_name" rule is enforced by
+// the handler's own 400 check below.
+const SignInSchema = z.object({
+  building_id: reqStr(100),
+  contractor_id: optStr(100),
+  inline_name: optStr(120),
+  phone: optStr(32),
+  company_id: optStr(100),
+  unit_id: optStr(100),
+  work_order_id: optStr(100),
+  purpose: optStr(200),
+  method: optStr(20),
+  photo_url: optStr(1000),
+  signature_ref: optStr(1000),
+  gate_enforced: z.boolean().optional(),
+});
 
 // =============================================================================
 //  GET  /api/contractor-visits        — who's on site now (?building=ID)
@@ -50,16 +69,10 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, SignInSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
-  if (!body.building_id) {
-    return NextResponse.json({ error: "building_id is required" }, { status: 400 });
-  }
   if (!body.contractor_id && !body.inline_name) {
     return NextResponse.json(
       { error: "contractor_id or inline_name is required" },

@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { complianceTemplateById } from "@/data/compliance-templates";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+const CompleteItemSchema = z.object({
+  building_id: reqStr(100),
+  template_id: reqStr(100),
+  last_completed: reqStr(100),
+  vendor_id: optStr(100),
+  notes: optStr(5000),
+});
 
 // =============================================================================
 //  POST /api/compliance-items/complete
@@ -32,25 +42,14 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, CompleteItemSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
-  const building_id = body.building_id ? String(body.building_id) : "";
-  const template_id = body.template_id ? String(body.template_id) : "";
-  const last_completed = body.last_completed
-    ? String(body.last_completed)
-    : "";
+  const building_id = body.building_id;
+  const template_id = body.template_id;
+  const last_completed = body.last_completed;
 
-  if (!building_id || !template_id || !last_completed) {
-    return NextResponse.json(
-      { error: "building_id, template_id, and last_completed are required" },
-      { status: 400 }
-    );
-  }
   if (!complianceTemplateById(template_id)) {
     return NextResponse.json(
       { error: `Unknown template_id: ${template_id}` },

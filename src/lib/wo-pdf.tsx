@@ -164,6 +164,10 @@ function WorkOrderPdfDoc({ wo }: { wo: NormalizedWorkOrder }) {
         <View style={st.sigRow}>
           <View style={st.sigMain}>
             <View style={st.sigLine}>
+              {/* This <Image> is @react-pdf/renderer's PDF primitive, not next/image
+                  or a DOM <img> — it has no `alt` prop. next/core-web-vitals maps all
+                  <Image> to next/image for alt-text, a false positive here. */}
+              {/* eslint-disable-next-line jsx-a11y/alt-text */}
               {sig ? <Image src={sig} style={st.sigImg} /> : null}
             </View>
             <Text style={st.sigLabel}>

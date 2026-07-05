@@ -1,7 +1,38 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
+import { parseJson, optStr } from "@/lib/validation";
+
+// Each row is optional-shaped; per-row required-field checks (name/address/
+// borough) run below with their own row-numbered error messages.
+const BuildingImportRowSchema = z.object({
+  id: optStr(100),
+  name: optStr(300),
+  address: optStr(500),
+  borough: optStr(100),
+  year_built: z.coerce.number().finite().optional().nullable(),
+  num_units: z.coerce.number().finite().optional().nullable(),
+  num_floors: z.coerce.number().finite().optional().nullable(),
+  square_footage: z.coerce.number().finite().optional().nullable(),
+  bin: optStr(100),
+  bbl: optStr(100),
+  hpd_id: optStr(100),
+  community_district: optStr(100),
+  has_section8: z.boolean().optional(),
+  is_pact_rad: z.boolean().optional(),
+  has_oil_heat: z.boolean().optional(),
+  has_cooling_tower: z.boolean().optional(),
+  has_sprinkler: z.boolean().optional(),
+  has_known_lead: z.boolean().optional(),
+  heat_notes: optStr(5000),
+  generate_units: z.boolean().optional(),
+  line_layout: z.array(z.string().trim().max(20)).optional(),
+});
+const BuildingImportSchema = z.object({
+  buildings: z.array(BuildingImportRowSchema),
+});
 
 // =============================================================================
 //  POST /api/buildings/import — bulk create/update buildings from a CSV upload
@@ -35,29 +66,7 @@ const DEFAULT_LINE_BEDROOMS: Record<string, number> = {
 };
 const DEFAULT_LINES = Object.keys(DEFAULT_LINE_BEDROOMS);
 
-interface BuildingRow {
-  id?: string;
-  name?: string;
-  address?: string;
-  borough?: string;
-  year_built?: number;
-  num_units?: number;
-  num_floors?: number;
-  square_footage?: number;
-  bin?: string;
-  bbl?: string;
-  hpd_id?: string;
-  community_district?: string;
-  has_section8?: boolean;
-  is_pact_rad?: boolean;
-  has_oil_heat?: boolean;
-  has_cooling_tower?: boolean;
-  has_sprinkler?: boolean;
-  has_known_lead?: boolean;
-  heat_notes?: string;
-  generate_units?: boolean;
-  line_layout?: string[];
-}
+// Row shape is defined by BuildingImportRowSchema above (Zod is the source of truth).
 
 function slug(s: string): string {
   return s
@@ -95,16 +104,9 @@ export async function POST(request: Request) {
     );
   }
 
-  let payload: { buildings: BuildingRow[] };
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  if (!Array.isArray(payload.buildings)) {
-    return NextResponse.json({ error: "Missing buildings array" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, BuildingImportSchema);
+  if (parsed.response) return parsed.response;
+  const payload = parsed.data;
 
   const errors: string[] = [];
   const seen = new Set<string>();

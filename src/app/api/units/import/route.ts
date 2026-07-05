@@ -1,7 +1,30 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+// label is optional here: rows without a label are skipped below (filter),
+// mirroring the pre-validation behavior of not rejecting the whole upload.
+const UnitImportRowSchema = z.object({
+  label: optStr(100),
+  line: optStr(20),
+  floor: z.coerce.number().finite().optional().nullable(),
+  bedrooms: z.coerce.number().finite().optional().nullable(),
+  bathrooms: z.coerce.number().finite().optional().nullable(),
+  occupied: z.boolean().optional(),
+  tenant_name: optStr(300),
+  tenant_phone: optStr(100),
+  is_section8: z.boolean().optional(),
+  has_children_under_6: z.boolean().optional(),
+  has_children_under_11: z.boolean().optional(),
+  notes: optStr(5000),
+});
+const UnitImportSchema = z.object({
+  building_id: reqStr(100),
+  units: z.array(UnitImportRowSchema),
+});
 
 // =============================================================================
 //  POST /api/units/import
@@ -13,20 +36,7 @@ import { requireRole, WRITE_ASM } from "@/lib/authz";
 //  Returns: { inserted: number, skipped: number, errors: string[] }
 // =============================================================================
 
-interface UnitRow {
-  label: string;
-  line?: string;
-  floor?: number;
-  bedrooms?: number;
-  bathrooms?: number;
-  occupied?: boolean;
-  tenant_name?: string;
-  tenant_phone?: string;
-  is_section8?: boolean;
-  has_children_under_6?: boolean;
-  has_children_under_11?: boolean;
-  notes?: string;
-}
+// Row shape is defined by UnitImportRowSchema above (Zod is the source of truth).
 
 export async function POST(request: Request) {
   const auth = await requireRole(WRITE_ASM);
@@ -42,19 +52,9 @@ export async function POST(request: Request) {
     );
   }
 
-  let payload: { building_id: string; units: UnitRow[] };
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  if (!payload.building_id || !Array.isArray(payload.units)) {
-    return NextResponse.json(
-      { error: "Missing building_id or units array" },
-      { status: 400 }
-    );
-  }
+  const parsed = await parseJson(request, UnitImportSchema);
+  if (parsed.response) return parsed.response;
+  const payload = parsed.data;
 
   // Make sure the building exists.
   const { data: bldg, error: bldgErr } = await supabase
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   // Shape each row + assign stable id from building+label so re-imports
   // are idempotent (UNIQUE constraint on (building_id,label) does dedup).
   const rows = payload.units
-    .filter((u) => u.label && u.label.trim().length > 0)
+    .filter((u): u is typeof u & { label: string } => !!u.label && u.label.trim().length > 0)
     .map((u) => ({
       id: `u-${payload.building_id.replace("bldg-", "")}-${u.label.toLowerCase()}`,
       building_id: payload.building_id,

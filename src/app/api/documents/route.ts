@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import {
   createSupabaseServerClient,
   getCurrentUserProfile,
 } from "@/lib/supabase-server";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+const CreateDocumentSchema = z.object({
+  name: reqStr(300),
+  path: reqStr(500),
+  category: optStr(100),
+  building_id: optStr(100),
+  unit_id: optStr(100),
+  mime: optStr(100),
+  size: z.coerce.number().finite().optional().nullable(),
+});
 
 // =============================================================================
 //  POST /api/documents — record an uploaded file in the repository
@@ -26,18 +38,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, CreateDocumentSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
-  const name = String(body.name ?? "").trim();
-  const path = String(body.path ?? "").trim();
-  if (!name || !path) {
-    return NextResponse.json({ error: "name and path are required." }, { status: 400 });
-  }
+  const name = body.name;
+  const path = body.path;
 
   const row: Record<string, unknown> = { name, path };
   for (const [k, v] of Object.entries(body)) {

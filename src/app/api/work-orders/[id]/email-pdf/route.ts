@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { toNormalized } from "@/lib/wo-adapter";
 import { renderWorkOrderPdf } from "@/lib/wo-pdf";
 import type { NormalizedWorkOrder } from "@workorder/kit/contract";
+import { parseJson } from "@/lib/validation";
+
+// recipient bounded here; format ("A valid recipient email…") is enforced by
+// the handler's EMAIL_RE check below.
+const EmailPdfSchema = z.object({
+  recipient: z.string().max(300).optional(),
+});
 
 // =============================================================================
 //  /api/work-orders/:id/email-pdf
@@ -71,12 +79,9 @@ export async function POST(
     );
   }
 
-  let body: { recipient?: string };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, EmailPdfSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   const recipient = String(body.recipient ?? "").trim();
   if (!EMAIL_RE.test(recipient)) {

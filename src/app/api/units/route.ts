@@ -1,7 +1,27 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+const CreateUnitSchema = z.object({
+  building_id: reqStr(100),
+  label: reqStr(100),
+  tenant_name: optStr(300),
+  tenant_phone: optStr(100),
+  tenant_phone2: optStr(100),
+  emergency_contact_name: optStr(300),
+  emergency_contact_relation: optStr(100),
+  emergency_contact_phone: optStr(100),
+  occupied: z.boolean().optional(),
+  lease_start: optStr(100),
+  lease_end: optStr(100),
+  rent_status: optStr(100),
+  line: optStr(20),
+  floor: z.coerce.number().finite().optional().nullable(),
+  notes: optStr(5000),
+});
 
 // =============================================================================
 //  POST /api/units — add an apartment (used by the Tenant directory)
@@ -31,21 +51,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, CreateUnitSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
-  const building_id = String(body.building_id ?? "").trim();
-  const label = String(body.label ?? "").trim().toUpperCase();
-  if (!building_id || !label) {
-    return NextResponse.json(
-      { error: "Building and apartment are required." },
-      { status: 400 }
-    );
-  }
+  const building_id = body.building_id;
+  const label = body.label.toUpperCase();
 
   const num = building_id.replace(/^bldg-/, "");
   const row: Record<string, unknown> = {

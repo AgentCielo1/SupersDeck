@@ -1,7 +1,24 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+const CreateVendorSchema = z.object({
+  name: reqStr(300),
+  category_id: reqStr(100),
+  contact_name: optStr(300),
+  phone: optStr(100),
+  email: optStr(300),
+  address: optStr(500),
+  license_type: optStr(100),
+  license_number: optStr(100),
+  license_expires: optStr(100),
+  in_my_vendors: z.boolean().optional(),
+  notes: optStr(5000),
+  rating: z.coerce.number().finite().optional().nullable(),
+});
 
 // =============================================================================
 //  GET  /api/vendors  — list "my vendors" (used by the WO edit dropdown)
@@ -54,19 +71,9 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  if (!body.name || !body.category_id) {
-    return NextResponse.json(
-      { error: "name and category_id are required" },
-      { status: 400 }
-    );
-  }
+  const parsed = await parseJson(request, CreateVendorSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   const row = {
     id: `vendor-${slug(body.name)}-${Date.now().toString(36)}`,

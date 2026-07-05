@@ -1,7 +1,33 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+const CreateBuildingSchema = z.object({
+  id: optStr(100),
+  name: reqStr(300),
+  address: reqStr(500),
+  borough: reqStr(100),
+  year_built: z.coerce.number().finite().optional().nullable(),
+  num_units: z.coerce.number().finite().optional().nullable(),
+  num_floors: z.coerce.number().finite().optional().nullable(),
+  bin: optStr(100),
+  bbl: optStr(100),
+  hpd_id: optStr(100),
+  community_district: optStr(100),
+  has_section8: z.boolean().optional(),
+  is_pact_rad: z.boolean().optional(),
+  has_oil_heat: z.boolean().optional(),
+  has_cooling_tower: z.boolean().optional(),
+  has_sprinkler: z.boolean().optional(),
+  has_known_lead: z.boolean().optional(),
+  heat_notes: optStr(5000),
+  square_footage: z.coerce.number().finite().optional().nullable(),
+  generate_units: z.boolean().optional(),
+  line_layout: z.array(z.string().trim().max(20)).optional(),
+});
 
 // =============================================================================
 //  POST /api/buildings — create a building (and optionally auto-generate units)
@@ -58,19 +84,9 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  if (!body.name || !body.address || !body.borough) {
-    return NextResponse.json(
-      { error: "name, address, and borough are required" },
-      { status: 400 }
-    );
-  }
+  const parsed = await parseJson(request, CreateBuildingSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   const id = body.id ? slug(String(body.id)) : `bldg-${slug(String(body.name))}`;
   const num_floors = Number(body.num_floors) || 1;

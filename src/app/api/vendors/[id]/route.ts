@@ -1,7 +1,26 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
+import { parseJson, str, optStr } from "@/lib/validation";
+
+// Partial-update body: every field optional. A server-side whitelist
+// (ALLOWED_FIELDS) still filters what actually reaches the DB.
+const UpdateVendorSchema = z.object({
+  name: str(300).optional(),
+  category_id: str(100).optional(),
+  contact_name: optStr(300),
+  phone: optStr(100),
+  email: optStr(300),
+  address: optStr(500),
+  license_type: optStr(100),
+  license_number: optStr(100),
+  license_expires: optStr(100),
+  in_my_vendors: z.boolean().optional(),
+  notes: optStr(5000),
+  rating: z.coerce.number().finite().optional().nullable(),
+});
 
 // =============================================================================
 //  PATCH /api/vendors/:id  — update a vendor
@@ -37,12 +56,9 @@ export async function PATCH(
     );
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, UpdateVendorSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   const update: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {

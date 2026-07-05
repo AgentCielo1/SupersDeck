@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getServerSupabase } from "@/lib/supabase";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
+import { parseJson, reqStr } from "@/lib/validation";
+
+const SubscribeSchema = z.object({
+  endpoint: reqStr(1000),
+  keys: z.object({
+    p256dh: reqStr(500),
+    auth: reqStr(500),
+  }),
+});
+
+const UnsubscribeSchema = z.object({
+  endpoint: reqStr(1000),
+});
 
 // =============================================================================
 //  POST /api/push/subscribe — save a Web Push subscription
@@ -26,22 +40,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   }
 
-  let body: any;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, SubscribeSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
-  const endpoint = body?.endpoint;
-  const p256dh = body?.keys?.p256dh;
-  const auth = body?.keys?.auth;
-  if (!endpoint || !p256dh || !auth) {
-    return NextResponse.json(
-      { error: "endpoint, keys.p256dh, keys.auth are required" },
-      { status: 400 }
-    );
-  }
+  const endpoint = body.endpoint;
+  const p256dh = body.keys.p256dh;
+  const auth = body.keys.auth;
 
   const row = {
     id: `push-${me.id}-${Date.now().toString(36)}`,
@@ -74,17 +79,11 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   }
 
-  let body: any;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, UnsubscribeSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
-  const endpoint = body?.endpoint;
-  if (!endpoint) {
-    return NextResponse.json({ error: "endpoint required" }, { status: 400 });
-  }
+  const endpoint = body.endpoint;
 
   await supabase
     .from("push_subscriptions")

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getServerSupabase } from "@/lib/supabase";
+import { parseJson } from "@/lib/validation";
 import { coiStatus, type ComplianceStatus } from "@workorder/kit/contractor/contract";
 import type { ComplianceDocumentRow } from "@/types/contractors";
 import {
@@ -24,6 +26,24 @@ const MAX_PHONE_LEN = 32;
 const MAX_PURPOSE_LEN = 200;
 const MAX_PHOTO_BYTES = 500 * 1024; // ~500KB decoded
 const VISIT_METHODS = new Set(["qr", "kiosk", "phone", "staff"]);
+
+// Unauthenticated route: bound every field as defense-in-depth. Strings are NOT
+// trimmed here because the handler does its own trim/slice + magic-byte checks
+// and enforces the "name or contractor_id" requirement below. photo_base64 is
+// capped generously so the handler's ~500KB decoded-size check still runs.
+const PublicSignInSchema = z.object({
+  method: z.string().max(20).optional().nullable(),
+  inline_name: z.string().max(500).optional().nullable(),
+  contractor_id: z.string().max(100).optional().nullable(),
+  phone: z.string().max(100).optional().nullable(),
+  purpose: z.string().max(500).optional().nullable(),
+  company_id: z.string().max(100).optional().nullable(),
+  unit_id: z.string().max(100).optional().nullable(),
+  work_order_id: z.string().max(100).optional().nullable(),
+  client_id: z.string().max(200).optional().nullable(),
+  queued_at: z.string().max(100).optional().nullable(),
+  photo_base64: z.string().max(2_000_000).optional().nullable(),
+});
 
 // In-memory per-IP token bucket (~10 sign-ins/min). Fine for a single
 // serverless instance; Upstash rate limiting is the production upgrade path.
@@ -87,12 +107,9 @@ export async function POST(
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, PublicSignInSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
   if (body.method != null && !VISIT_METHODS.has(body.method)) {
     return NextResponse.json({ error: "Invalid method" }, { status: 400 });
   }

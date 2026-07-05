@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+const CreateCertSchema = z.object({
+  holder_name: reqStr(300),
+  type: reqStr(300),
+  number: reqStr(100),
+  expires_at: reqStr(100),
+  issued_at: optStr(100),
+  agency: optStr(300),
+  notes: optStr(5000),
+});
 
 // =============================================================================
 //  POST /api/certifications — add a staff certification
@@ -21,19 +33,9 @@ export async function POST(request: Request) {
       { status: 503 }
     );
   }
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  if (!body.holder_name || !body.type || !body.number || !body.expires_at) {
-    return NextResponse.json(
-      { error: "holder_name, type, number, and expires_at are required" },
-      { status: 400 }
-    );
-  }
+  const parsed = await parseJson(request, CreateCertSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   const row = {
     id: `cert-${slug(`${body.holder_name}-${body.type}-${body.number}`)}-${Date.now().toString(36)}`,
