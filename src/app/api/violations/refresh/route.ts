@@ -23,7 +23,9 @@ export const maxDuration = 60; // can take a moment when many buildings × viola
 
 function authorized(request: NextRequest): boolean {
   const expected = process.env.CRON_SECRET;
-  if (!expected) return true; // No secret set → don't gate. Phase 5 demo.
+  // Fail CLOSED — a missing/rotated secret must DENY, never open this
+  // building-fanout endpoint to the public (cost/DoS amplifier otherwise).
+  if (!expected) return false;
   const got = request.headers.get("authorization");
   return got === `Bearer ${expected}`;
 }

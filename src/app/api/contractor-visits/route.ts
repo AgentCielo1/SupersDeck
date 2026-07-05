@@ -9,6 +9,7 @@ import {
   blockedMessage,
   recordBlockedAttempt,
 } from "@/lib/contractor-gate";
+import { requireRole, WRITE_ASM } from "@/lib/authz";
 
 // =============================================================================
 //  GET  /api/contractor-visits        — who's on site now (?building=ID)
@@ -39,6 +40,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireRole(WRITE_ASM);
+  if (auth.response) return auth.response;
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(
