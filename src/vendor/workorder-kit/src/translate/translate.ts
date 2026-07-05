@@ -51,6 +51,7 @@ Respond with ONLY a single JSON object (no prose, no code fences) with these exa
 If the text is already English, return source_language='en' with the original strings unchanged.`;
 
     const res = await fetch("https://api.anthropic.com/v1/messages", {
+      signal: AbortSignal.timeout(15_000), // tenant intake runs this inline — never hang the ticket
       method: "POST",
       headers: {
         "Content-Type": "application/json",
