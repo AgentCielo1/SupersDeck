@@ -31,35 +31,45 @@ export default function BuildingEditForm({ building }: { building: Building }) {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const res = await fetch(`/api/buildings/${building.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(b),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(data.error ?? "Save failed");
-      setSaving(false);
-      return;
+    try {
+      const res = await fetch(`/api/buildings/${building.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(b),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Save failed");
+        return;
+      }
+      router.push("/buildings");
+      router.refresh();
+    } catch {
+      setError("Network error — check your connection and try again.");
+    } finally {
+      setSaving(false); // never leave the button stuck on "Saving…"
     }
-    router.push("/buildings");
-    router.refresh();
   }
 
   async function onDelete() {
     setDeleting(true);
     setDeleteError(null);
-    const res = await fetch(`/api/buildings/${building.id}`, {
-      method: "DELETE",
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setDeleteError(data.error ?? "Delete failed");
+    try {
+      const res = await fetch(`/api/buildings/${building.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDeleteError(data.error ?? "Delete failed");
+        return;
+      }
+      router.push("/buildings");
+      router.refresh();
+    } catch {
+      setDeleteError("Network error — check your connection and try again.");
+    } finally {
       setDeleting(false);
-      return;
     }
-    router.push("/buildings");
-    router.refresh();
   }
 
   return (
