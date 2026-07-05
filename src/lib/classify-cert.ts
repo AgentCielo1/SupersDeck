@@ -62,6 +62,7 @@ export async function classifyCert(
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
+      signal: AbortSignal.timeout(15_000), // never hang on a slow upstream
       method: "POST",
       headers: {
         "Content-Type": "application/json",

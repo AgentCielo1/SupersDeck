@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { getServerSupabase } from "@/lib/supabase";
 import { pushToAdminsAndSupers } from "@/lib/push";
 import { translateToEnglish } from "@/lib/translate";
+import { getClientIp, isRateLimited } from "@/lib/ratelimit";
 
 // =============================================================================
 //  POST /api/work-orders — create a work order
@@ -61,6 +62,14 @@ function genTicketNumber(): string {
 }
 
 export async function POST(request: Request) {
+  // Public tenant intake spends money on every call (Claude translate + admin
+  // emails + push fan-out) — rate-limit per IP BEFORE any of that work runs.
+  if (isRateLimited(`wo-intake:${getClientIp(request)}`, 8, 60_000)) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait a minute and try again." },
+      { status: 429 },
+    );
+  }
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(

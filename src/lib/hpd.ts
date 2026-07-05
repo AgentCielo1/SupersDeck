@@ -125,6 +125,7 @@ export async function fetchHpdViolationsForBuilding(
   let url = `${DATASET}?${params.toString()}`;
 
   const res = await fetch(url, {
+    signal: AbortSignal.timeout(15_000),  // never hang the cron/refresh on NYC Open Data
     next: { revalidate: 3600 },           // cache for 1 hour
     headers: { Accept: "application/json" },
   });
