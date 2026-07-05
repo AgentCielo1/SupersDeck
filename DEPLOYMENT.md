@@ -76,7 +76,7 @@ Get the Supabase values from your project (Settings → API on supersdeck-prod
 
 | Name                              | Value                                                | Notes                                                                                  |
 | --------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`        | `https://izfzcvusozmzotjjmmkn.supabase.co`           | Same as `.env.local`                                                                   |
+| `NEXT_PUBLIC_SUPABASE_URL`        | `https://<your-project-ref>.supabase.co`              | Same as `.env.local`                                                                   |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`   | (your anon key)                                       | Same as `.env.local`                                                                   |
 | `SUPABASE_SERVICE_ROLE_KEY`       | (your service-role key)                              | **Secret.** Mark as such in Vercel's UI.                                               |
 | `RESEND_API_KEY`                  | (key from Resend dashboard, `re_…`)                  | **Secret.** Used by the violations-alert cron.                                         |

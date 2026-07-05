@@ -5,7 +5,7 @@
 import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({
-  dsn: "https://0af35a147fe5cabd50ce74bdd0d6a308@o4511658696310784.ingest.us.sentry.io/4511658704306176",
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
   // Identify this app within the shared Sentry project.
   initialScope: {
@@ -13,7 +13,7 @@ Sentry.init({
   },
 
   // Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 0,
+  tracesSampleRate: 0.1,
 
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
   debug: false,
