@@ -1,7 +1,38 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM, ADMIN_ONLY } from "@/lib/authz";
+import { parseJson, str, optStr } from "@/lib/validation";
+
+// Partial-update body: every field optional. A server-side whitelist
+// (ALLOWED_FIELDS) still filters what actually reaches the DB.
+const UpdateBuildingSchema = z.object({
+  name: str(300).optional(),
+  address: str(500).optional(),
+  borough: str(100).optional(),
+  year_built: z.coerce.number().finite().optional().nullable(),
+  num_units: z.coerce.number().finite().optional().nullable(),
+  num_floors: z.coerce.number().finite().optional().nullable(),
+  bin: optStr(100),
+  bbl: optStr(100),
+  hpd_id: optStr(100),
+  community_district: optStr(100),
+  has_section8: z.boolean().optional(),
+  is_pact_rad: z.boolean().optional(),
+  has_oil_heat: z.boolean().optional(),
+  has_cooling_tower: z.boolean().optional(),
+  has_sprinkler: z.boolean().optional(),
+  has_known_lead: z.boolean().optional(),
+  heat_notes: optStr(5000),
+  square_footage: z.coerce.number().finite().optional().nullable(),
+  manager_name: optStr(300),
+  manager_email: optStr(300),
+  co_number: optStr(100),
+  co_issued_at: optStr(100),
+  co_expires_at: optStr(100),
+  legal_entity: optStr(300),
+});
 
 // =============================================================================
 //  GET   /api/buildings/:id  — fetch one building (used by /intake and the
@@ -80,12 +111,9 @@ export async function PATCH(
     );
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, UpdateBuildingSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   // Whitelist allowed fields so the client can't smuggle in id/created_at.
   const update: Record<string, unknown> = {};

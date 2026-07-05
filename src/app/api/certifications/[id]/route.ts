@@ -1,7 +1,25 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM, ADMIN_ONLY } from "@/lib/authz";
+import { parseJson } from "@/lib/validation";
+
+// Partial-update body: every field optional. A server-side whitelist (ALLOWED)
+// still filters what reaches the DB, and the handler does its own
+// empty-string→null normalization + "type can't be empty" guard — so these are
+// bounded but NOT trimmed, to preserve that downstream logic verbatim.
+const s = (max: number) => z.string().max(max);
+const UpdateCertSchema = z.object({
+  holder_name: s(300).optional().nullable(),
+  type: s(300).optional().nullable(),
+  number: s(100).optional().nullable(),
+  issued_at: s(100).optional().nullable(),
+  expires_at: s(100).optional().nullable(),
+  agency: s(300).optional().nullable(),
+  notes: s(5000).optional().nullable(),
+  cert_key: s(100).optional().nullable(),
+});
 
 // =============================================================================
 //  PATCH  /api/certifications/:id — edit a certification's details
@@ -22,12 +40,9 @@ export async function PATCH(
   if (!supabase) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
   }
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, UpdateCertSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
   const update: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {
     if (ALLOWED.has(k)) update[k] = typeof v === "string" && v.trim() === "" ? null : v;

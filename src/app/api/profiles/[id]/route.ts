@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
+import { parseJson } from "@/lib/validation";
+
+// Partial update. Bounded but NOT trimmed: the handler trims full_name itself
+// and validates role against ALLOWED_ROLES verbatim.
+const s = (max: number) => z.string().max(max);
+const UpdateProfileSchema = z.object({
+  full_name: s(300).optional().nullable(),
+  role: s(50).optional().nullable(),
+});
 
 // =============================================================================
 //  PATCH /api/profiles/:id — change a user's role or name (admin only)
@@ -23,12 +33,9 @@ export async function PATCH(
     );
   }
 
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, UpdateProfileSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   const update: Record<string, unknown> = {};
   if (typeof body.full_name === "string") update.full_name = body.full_name.trim();

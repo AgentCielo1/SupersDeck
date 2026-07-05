@@ -1,7 +1,20 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASMP } from "@/lib/authz";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+const HeatLogSchema = z.object({
+  building_id: reqStr(100),
+  unit_id: optStr(100),
+  indoor_temp_f: z.coerce.number().finite(),
+  outdoor_temp_f: z.coerce.number().finite().optional().nullable(),
+  hot_water_temp_f: z.coerce.number().finite().optional().nullable(),
+  source: z.enum(["manual", "sensor"]).optional(),
+  notes: optStr(5000),
+  recorded_at: z.string().optional(),
+});
 
 // =============================================================================
 //  POST /api/heat-logs — record a heat / hot-water reading
@@ -36,26 +49,11 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, HeatLogSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
-  if (!body.building_id) {
-    return NextResponse.json(
-      { error: "building_id is required" },
-      { status: 400 }
-    );
-  }
-  const indoor = Number(body.indoor_temp_f);
-  if (!Number.isFinite(indoor)) {
-    return NextResponse.json(
-      { error: "indoor_temp_f must be a number" },
-      { status: 400 }
-    );
-  }
+  const indoor = body.indoor_temp_f;
 
   const row = {
     id: `heat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,

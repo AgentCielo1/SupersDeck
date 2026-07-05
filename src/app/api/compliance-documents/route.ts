@@ -1,7 +1,27 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+// doc_type required; the "one of company_id / contractor_id" rule is enforced
+// by the handler's own 400 check below.
+const CreateComplianceDocSchema = z.object({
+  doc_type: reqStr(100),
+  company_id: optStr(100),
+  contractor_id: optStr(100),
+  carrier: optStr(300),
+  policy_number: optStr(100),
+  gl_per_occurrence: z.coerce.number().finite().optional().nullable(),
+  gl_aggregate: z.coerce.number().finite().optional().nullable(),
+  issuing_agency: optStr(300),
+  effective_date: optStr(100),
+  expiry_date: optStr(100),
+  additional_insured: z.boolean().optional(),
+  exemption_type: optStr(100),
+  file_url: optStr(1000),
+});
 
 // =============================================================================
 //  GET  /api/compliance-documents?expiringInDays=30 — manager action list
@@ -47,12 +67,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, CreateComplianceDocSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   if (!body.doc_type || (!body.company_id && !body.contractor_id)) {
     return NextResponse.json(

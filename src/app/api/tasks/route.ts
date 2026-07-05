@@ -1,9 +1,24 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import {
   createSupabaseServerClient,
   getCurrentUserProfile,
 } from "@/lib/supabase-server";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+const CreateTaskSchema = z.object({
+  title: reqStr(300),
+  notes: optStr(5000),
+  folder: optStr(100),
+  priority: optStr(50),
+  building_id: optStr(100),
+  unit_id: optStr(100),
+  due_date: optStr(100),
+  files: z.array(z.record(z.string(), z.any())).optional(),
+  assigned_to: optStr(100),
+  assigned_vendor_id: optStr(100),
+});
 
 // =============================================================================
 //  POST /api/tasks — create a backlog task
@@ -31,17 +46,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, CreateTaskSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
-  const title = String(body.title ?? "").trim();
-  if (!title) {
-    return NextResponse.json({ error: "A title is required." }, { status: 400 });
-  }
+  const title = body.title;
 
   const row: Record<string, unknown> = { title };
   for (const [k, v] of Object.entries(body)) {

@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+// role is required; the specific allowed-roles error message is produced by the
+// handler's ALLOWED_ROLES check below.
+const InviteUserSchema = z.object({
+  email: reqStr(300),
+  full_name: optStr(300),
+  role: optStr(50),
+});
 
 // =============================================================================
 //  POST /api/profiles — invite a new user (admin only)
@@ -29,12 +39,9 @@ export async function POST(request: Request) {
   }
 
   // 2. Parse + validate body.
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, InviteUserSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   const email = String(body.email ?? "").trim().toLowerCase();
   const full_name = String(body.full_name ?? "").trim();

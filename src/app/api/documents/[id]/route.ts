@@ -1,7 +1,21 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { DOC_BUCKET } from "@/types/documents";
+import { parseJson } from "@/lib/validation";
+
+// Partial-update body: every field optional. A server-side whitelist
+// (PATCH_ALLOWED) filters what reaches the DB, and the handler does its own
+// empty-string→null normalization + "name can't be empty" guard — so these are
+// bounded but NOT trimmed, to preserve that downstream logic verbatim.
+const s = (max: number) => z.string().max(max);
+const UpdateDocumentSchema = z.object({
+  name: s(300).optional().nullable(),
+  building_id: s(100).optional().nullable(),
+  unit_id: s(100).optional().nullable(),
+  category: s(100).optional().nullable(),
+});
 
 // =============================================================================
 //  GET    /api/documents/:id — redirect to a short-lived signed download URL
@@ -50,12 +64,9 @@ export async function PATCH(
   if (!supabase) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
   }
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, UpdateDocumentSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
   const update: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {
     if (PATCH_ALLOWED.has(k)) update[k] = v === "" ? null : v;

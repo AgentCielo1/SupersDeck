@@ -7,6 +7,29 @@ import { resolvePhotoUrls } from "@/lib/storage";
 import { archiveCompletedWorkOrder } from "@/lib/wo-archive";
 import type { WorkOrder } from "@/types";
 import { requireRole, WRITE_ASMP } from "@/lib/authz";
+import { parseJson } from "@/lib/validation";
+import { z } from "zod";
+
+// Partial-update body: every field optional. A server-side whitelist
+// (ALLOWED_FIELDS) filters what reaches the DB; the handler does its own
+// empty-string→null normalization + photo validation. Strings are bounded but
+// NOT trimmed to preserve that logic. Photos are bounded here and further
+// checked (count/size/format) below.
+const s = (max: number) => z.string().max(max);
+const UpdateWorkOrderSchema = z.object({
+  title: s(300).optional().nullable(),
+  description: s(5000).optional().nullable(),
+  category: s(100).optional().nullable(),
+  priority: s(50).optional().nullable(),
+  status: s(50).optional().nullable(),
+  assigned_to: s(100).optional().nullable(),
+  assigned_vendor_id: s(100).optional().nullable(),
+  due_at: s(100).optional().nullable(),
+  internal_notes: s(5000).optional().nullable(),
+  hpd_risk: z.boolean().optional(),
+  photos: z.array(z.string().max(2_000_000)).optional().nullable(),
+  unit_id: s(100).optional().nullable(),
+});
 
 // =============================================================================
 //  PATCH /api/work-orders/:id  — edit a work order
@@ -68,12 +91,9 @@ export async function PATCH(
     );
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, UpdateWorkOrderSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   const update: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {

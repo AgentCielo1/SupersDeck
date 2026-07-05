@@ -1,7 +1,29 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM, ADMIN_ONLY } from "@/lib/authz";
+import { parseJson, optStr } from "@/lib/validation";
+
+// Partial-update body: every field optional. A server-side whitelist
+// (ALLOWED_FIELDS) still filters what actually reaches the DB.
+const UpdateUnitSchema = z.object({
+  occupied: z.boolean().optional(),
+  tenant_name: optStr(300),
+  tenant_phone: optStr(100),
+  tenant_phone2: optStr(100),
+  emergency_contact_name: optStr(300),
+  emergency_contact_relation: optStr(100),
+  emergency_contact_phone: optStr(100),
+  is_section8: z.boolean().optional(),
+  has_children_under_6: z.boolean().optional(),
+  has_children_under_11: z.boolean().optional(),
+  lead_xrf_completed: z.boolean().optional(),
+  lease_start: optStr(100),
+  lease_end: optStr(100),
+  rent_status: optStr(100),
+  notes: optStr(5000),
+});
 
 // =============================================================================
 //  PATCH /api/units/:id  — edit a unit row
@@ -45,12 +67,9 @@ export async function PATCH(
     );
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, UpdateUnitSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   const update: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {

@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { archiveCompletedWorkOrder } from "@/lib/wo-archive";
 import type { WorkOrder } from "@/types";
 import { requireRole, WRITE_ASMP } from "@/lib/authz";
+import { parseJson, optStr } from "@/lib/validation";
+
+// signature is bounded generously (NOT trimmed) so the handler's own
+// data-URL-prefix + ~250KB size checks run verbatim.
+const CompleteWorkOrderSchema = z.object({
+  signature: z.string().min(1).max(400_000),
+  signed_by_name: z.string().max(300),
+  internal_notes: optStr(5000),
+});
 
 // =============================================================================
 //  POST /api/work-orders/:id/complete
@@ -34,15 +44,12 @@ export async function POST(
     );
   }
 
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, CompleteWorkOrderSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
-  const sig = String(body.signature ?? "");
-  const signer = String(body.signed_by_name ?? "").trim();
+  const sig = body.signature;
+  const signer = body.signed_by_name.trim();
 
   if (!sig.startsWith("data:image/")) {
     return NextResponse.json(

@@ -1,10 +1,29 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import { getServerSupabase } from "@/lib/supabase";
 import { pushToAdminsAndSupers } from "@/lib/push";
 import { translateToEnglish } from "@/lib/translate";
 import { getClientIp, isRateLimited } from "@/lib/ratelimit";
+import { parseJson, reqStr, optStr } from "@/lib/validation";
+
+// building_id + reporter_name required. category/priority are further validated
+// against their allow-lists by the handler below; photos are filtered to strings
+// and capped there too.
+const CreateWorkOrderSchema = z.object({
+  building_id: reqStr(100),
+  reporter_name: reqStr(300),
+  category: optStr(100),
+  unit_id: optStr(100),
+  unit_label: optStr(100),
+  title: optStr(300),
+  description: optStr(5000),
+  priority: optStr(50),
+  reporter_phone: optStr(100),
+  reporter_email: optStr(300),
+  photos: z.array(z.string()).optional(),
+});
 
 // =============================================================================
 //  POST /api/work-orders — create a work order
@@ -78,19 +97,9 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: Record<string, any>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  if (!body.building_id || !body.reporter_name) {
-    return NextResponse.json(
-      { error: "building_id and reporter_name are required" },
-      { status: 400 }
-    );
-  }
+  const parsed = await parseJson(request, CreateWorkOrderSchema);
+  if (parsed.response) return parsed.response;
+  const body = parsed.data;
 
   // Validate the building exists (and is something the caller can target).
   const { data: bldg } = await supabase
@@ -155,7 +164,7 @@ export async function POST(request: Request) {
     description_en: translation.description_en || null,
     source_language: translation.source_language,
     category,
-    priority: ["emergency", "high", "normal", "low"].includes(body.priority)
+    priority: ["emergency", "high", "normal", "low"].includes(String(body.priority))
       ? String(body.priority)
       : "normal",
     status: "new",

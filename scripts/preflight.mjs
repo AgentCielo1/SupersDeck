@@ -49,6 +49,9 @@ function walk(dir, out = []) {
 }
 const files = walk(SRC);
 const grepFiles = (re) => files.filter((f) => re.test(readFileSync(f, 'utf8')));
+const body = (f) => readFileSync(f, 'utf8');
+const short = (f) => f.replace(ROOT + '/', '');
+const info = (m) => console.log(`  \x1b[33m•\x1b[0m ${m}`);
 
 console.log('SupersDeck preflight — correctness + resilience + security gate\n' + '='.repeat(62));
 
@@ -90,18 +93,47 @@ publicSecret.length === 0 && clientSecret.length === 0
   ? ok('no secret/service-role key exposed to the client bundle')
   : bad(`SECRET reachable from client: ${[...publicSecret, ...clientSecret].map((f) => f.replace(ROOT + '/', '')).join(', ')}`);
 
-// b) Input validation library present AND actually used in API routes / actions.
+// b) Input validation library present AND actually used at every WRITE boundary.
+//    The gated surface is precisely the routes that read an untrusted request
+//    BODY (.json/.formData/.text) plus every server action — that is where
+//    unvalidated input reaches an insert/update. GET routes that only read
+//    searchParams flow into parameterized PostgREST filters (lower risk) and are
+//    reported as advisory, not gated. Requiring *every* route to "validate" (the
+//    old denominator) diluted the metric with read-only routes.
 const hasValidator = !!(deps.zod || deps.valibot || deps.yup);
-const boundaryFiles = files.filter((f) => /\/app\/api\/.*route\.(ts|js)x?$/.test(f) || /['"]use server['"]/.test(readFileSync(f, 'utf8')));
-const validatedBoundaries = boundaryFiles.filter((f) => /\b(zod|z\.|safeParse|parse\(|valibot|yup)\b/.test(readFileSync(f, 'utf8')));
 hasValidator
   ? ok(`input-validation library present (${deps.zod ? 'zod' : deps.valibot ? 'valibot' : 'yup'})`)
   : bad('no input-validation library (zod/valibot) — inputs reach the DB unvalidated');
-if (boundaryFiles.length) {
-  const ratio = validatedBoundaries.length / boundaryFiles.length;
-  ratio >= 0.6
-    ? ok(`inputs validated at ${validatedBoundaries.length}/${boundaryFiles.length} API/action boundaries`)
-    : bad(`only ${validatedBoundaries.length}/${boundaryFiles.length} API/action boundaries validate input`);
+
+const apiRoutes = files.filter((f) => /\/app\/api\/.*route\.(ts|js)x?$/.test(f));
+// Reads the REQUEST body — either the raw `request.json/formData/text(...)` (anchored
+// to the request param so it does NOT match NextResponse.json(...) or an external
+// fetch's res.json()), OR our `parseJson(request, schema)` helper, which wraps
+// request.json() internally. Counting the helper is essential: once a route adopts
+// parseJson the raw call disappears, so without this the validated routes would stop
+// looking like body boundaries and the metric would silently collapse to a false pass.
+const readsBody = (s) => /\b(request|req)\.(json|formData|text)\s*\(/.test(s) || /\bparseJson\s*\(/.test(s);
+// A boundary "validates" if untrusted input flows through a schema before use.
+// Precise tokens (parseJson helper / safeParse / z.object|array|enum) — not a bare
+// parse( which would false-match JSON.parse / Date.parse.
+const validates = (s) => /\b(parseJson|safeParse|z\.(object|array|enum|coerce|string|number)|valibot|yup)\b/.test(s);
+const serverActions = files.filter((f) => /^['"]use server['"]/m.test(body(f)));
+const writeBoundaries = [...new Set([...apiRoutes.filter((f) => readsBody(body(f))), ...serverActions])];
+const unvalidated = writeBoundaries.filter((f) => !validates(body(f)));
+if (writeBoundaries.length) {
+  const n = writeBoundaries.length;
+  unvalidated.length === 0
+    ? ok(`inputs validated at all ${n}/${n} body/action write boundaries`)
+    : bad(
+        `${unvalidated.length}/${n} write boundaries take UNVALIDATED input: ` +
+          unvalidated.slice(0, 8).map(short).join(', ') +
+          (unvalidated.length > 8 ? ` …+${unvalidated.length - 8}` : ''),
+      );
+}
+// Advisory: GET routes reading searchParams without a schema (lower risk, not gated).
+const searchParamOnly = apiRoutes.filter((f) => /searchParams/.test(body(f)) && !readsBody(body(f)) && !validates(body(f)));
+if (searchParamOnly.length) {
+  info(`advisory: ${searchParamOnly.length} GET route(s) read searchParams without schema validation (parameterized filters — lower risk): ${searchParamOnly.slice(0, 6).map(short).join(', ')}${searchParamOnly.length > 6 ? ' …' : ''}`);
 }
 
 // c) Rate limiting on public/auth/expensive endpoints.
@@ -118,6 +150,27 @@ deps['@upstash/ratelimit'] || grepFiles(/ratelimit|rateLimit|rate-limit/i).lengt
 existsSync(resolve(SRC, 'middleware.ts')) || existsSync(resolve(ROOT, 'middleware.ts'))
   ? ok('middleware present (server-side route gating)')
   : bad('no middleware.ts — protected routes not gated at the edge');
+
+// ── 4. Platform Standard conformance (STANDARD.md) ───────────────────────────
+//  Two tiers: HARDENED-NOW invariants gate the build; MIGRATION-PENDING items
+//  (the Prisma-7 / Upstash / Next-16 target stack) are tracked as advisories so a
+//  live-PII app stays shippable while it migrates onto the standard, not before.
+console.log('\n▶ platform-standard conformance (~/Developer/cielo-platform/STANDARD.md)');
+// Hardened-now: Zod-validated env module must exist and actually parse process.env.
+existsSync(resolve(SRC, 'env.ts')) && /safeParse\s*\(\s*process\.env/.test(read('src/env.ts'))
+  ? ok('src/env.ts validates process.env with Zod (fail-fast on bad env)')
+  : bad('no Zod-validated src/env.ts (env misconfig surfaces as deep runtime errors)');
+// Hardened-now: an app-layer authz gate (requireRole) must back the RLS model.
+existsSync(resolve(SRC, 'lib/authz.ts')) && /requireRole/.test(read('src/lib/authz.ts'))
+  ? ok('src/lib/authz.ts requireRole present (app-layer authz backstops RLS)')
+  : bad('no app-layer authz gate (RLS-only — service-role routes bypass it)');
+// Migration-pending advisories — the target stack, not yet a hard gate here.
+const pending = [];
+(deps.prisma || deps['@prisma/client']) ? ok('Prisma present') : pending.push('Prisma 7 scoped-DB layer (src/lib/db/) — still on Supabase PostgREST');
+deps['@upstash/ratelimit'] ? ok('Upstash ratelimit present') : pending.push('Upstash ratelimit (currently in-memory src/lib/ratelimit.ts — resets per-instance, not distributed)');
+existsSync(resolve(SRC, 'proxy.ts')) || existsSync(resolve(ROOT, 'proxy.ts')) ? ok('proxy.ts (Next 16) present') : pending.push('middleware.ts→proxy.ts rename (on Next 16 upgrade)');
+existsSync(resolve(ROOT, '.github/workflows')) ? ok('.github/workflows CI present') : pending.push('GitHub Actions CI (run this gate on every push)');
+for (const p of pending) info(`migration-pending: ${p}`);
 
 // ── Verdict ─────────────────────────────────────────────────────────────────
 console.log('\n' + '='.repeat(62));
