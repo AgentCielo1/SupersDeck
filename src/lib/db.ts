@@ -136,11 +136,13 @@ async function fetchWorkOrder(id: string): Promise<WorkOrder | undefined> {
       (w) => w.id === id || w.ticket_number === id
     );
   }
-  const { data, error } = await s
-    .from("work_orders")
-    .select("*")
-    .or(`id.eq.${id},ticket_number.eq.${id}`)
-    .maybeSingle();
+  // Typed lookup — NEVER interpolate user input into a PostgREST .or() filter.
+  // A UUID-shaped id hits the primary key; anything else is a ticket number.
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  const { data, error } = await (isUuid
+    ? s.from("work_orders").select("*").eq("id", id)
+    : s.from("work_orders").select("*").eq("ticket_number", id)
+  ).maybeSingle();
   if (error || !data) return undefined;
   return data as WorkOrder;
 }

@@ -6,6 +6,7 @@ import { getCurrentUserProfile } from "@/lib/supabase-server";
 import { resolvePhotoUrls } from "@/lib/storage";
 import { archiveCompletedWorkOrder } from "@/lib/wo-archive";
 import type { WorkOrder } from "@/types";
+import { requireRole, WRITE_ASMP } from "@/lib/authz";
 
 // =============================================================================
 //  PATCH /api/work-orders/:id  — edit a work order
@@ -57,6 +58,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRole(WRITE_ASMP);
+  if (auth.response) return auth.response;
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(

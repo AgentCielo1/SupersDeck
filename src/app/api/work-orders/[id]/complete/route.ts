@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { archiveCompletedWorkOrder } from "@/lib/wo-archive";
 import type { WorkOrder } from "@/types";
+import { requireRole, WRITE_ASMP } from "@/lib/authz";
 
 // =============================================================================
 //  POST /api/work-orders/:id/complete
@@ -23,6 +24,8 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRole(WRITE_ASMP);
+  if (auth.response) return auth.response;
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(

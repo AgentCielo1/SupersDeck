@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
+import { requireRole, WRITE_ASM } from "@/lib/authz";
 
 // =============================================================================
 //  PATCH /api/vendors/:id  — update a vendor
@@ -26,6 +27,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRole(WRITE_ASM);
+  if (auth.response) return auth.response;
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(
@@ -83,6 +86,8 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRole(WRITE_ASM);
+  if (auth.response) return auth.response;
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { complianceTemplateById } from "@/data/compliance-templates";
+import { requireRole, WRITE_ASM } from "@/lib/authz";
 
 // =============================================================================
 //  POST /api/compliance-items/complete
@@ -21,6 +22,8 @@ import { complianceTemplateById } from "@/data/compliance-templates";
 // =============================================================================
 
 export async function POST(request: Request) {
+  const auth = await requireRole(WRITE_ASM);
+  if (auth.response) return auth.response;
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(
