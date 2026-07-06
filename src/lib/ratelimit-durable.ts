@@ -16,8 +16,18 @@ import { getClientIp, isRateLimited } from "@/lib/ratelimit";
 
 export { getClientIp };
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+// Accept either the native Upstash names (UPSTASH_REDIS_REST_*) or the names the
+// Vercel Marketplace integration injects (KV_REST_API_* by default, or
+// STORAGE_REST_API_* if left on the default prefix). Same Upstash REST endpoint
+// and token either way — this just tolerates however the DB got wired up.
+const UPSTASH_URL =
+  process.env.UPSTASH_REDIS_REST_URL ||
+  process.env.KV_REST_API_URL ||
+  process.env.STORAGE_REST_API_URL;
+const UPSTASH_TOKEN =
+  process.env.UPSTASH_REDIS_REST_TOKEN ||
+  process.env.KV_REST_API_TOKEN ||
+  process.env.STORAGE_REST_API_TOKEN;
 
 /** True if this key is OVER the limit in the current window (→ 429). Async. */
 export async function isRateLimitedDurable(
