@@ -32,6 +32,11 @@ export interface IntakeStrings {
   loading: string;
   invalidCode: string;
   invalidCodeBody: string;
+  photoSection: string;
+  addPhoto: string;
+  photoUploading: string;
+  photoError: string;
+  removePhotoLabel: string;
   categories: Record<string, string>;
 }
 
@@ -45,7 +50,7 @@ export const STRINGS: Record<LangCode, IntakeStrings> = {
     apartmentPlaceholder: "e.g. 7C",
     phone: "Phone (so we can update you)",
     email: "Email (optional — we'll send your tracking link)",
-    issue: "What's the issue?",
+    issue: "What's the problem?",
     describe: "Describe what's happening",
     describePlaceholder: "Where, when it started, anything you tried…",
     speak: "🎤 Speak",
@@ -64,6 +69,11 @@ export const STRINGS: Record<LangCode, IntakeStrings> = {
     loading: "Loading…",
     invalidCode: "Invalid building code",
     invalidCodeBody: "Check the QR code in the lobby or ask your super.",
+    photoSection: "Add a photo (optional)",
+    addPhoto: "Add photo",
+    photoUploading: "Uploading…",
+    photoError: "Upload failed",
+    removePhotoLabel: "Remove photo",
     categories: {
       "no-heat": "No heat",
       "no-hot-water": "No hot water",
@@ -107,6 +117,11 @@ export const STRINGS: Record<LangCode, IntakeStrings> = {
     loading: "Cargando…",
     invalidCode: "Código de edificio inválido",
     invalidCodeBody: "Revise el código QR del vestíbulo o pregunte a su súper.",
+    photoSection: "Agregar una foto (opcional)",
+    addPhoto: "Agregar foto",
+    photoUploading: "Subiendo…",
+    photoError: "Error al subir",
+    removePhotoLabel: "Quitar foto",
     categories: {
       "no-heat": "Sin calefacción",
       "no-hot-water": "Sin agua caliente",
@@ -150,6 +165,11 @@ export const STRINGS: Record<LangCode, IntakeStrings> = {
     loading: "加载中…",
     invalidCode: "无效的建筑代码",
     invalidCodeBody: "请检查大厅的二维码或询问您的管理员。",
+    photoSection: "添加照片（可选）",
+    addPhoto: "添加照片",
+    photoUploading: "上传中…",
+    photoError: "上传失败",
+    removePhotoLabel: "移除照片",
     categories: {
       "no-heat": "没有暖气",
       "no-hot-water": "没有热水",
@@ -193,6 +213,11 @@ export const STRINGS: Record<LangCode, IntakeStrings> = {
     loading: "Загрузка…",
     invalidCode: "Неверный код здания",
     invalidCodeBody: "Проверьте QR-код в вестибюле или спросите управдома.",
+    photoSection: "Добавить фото (необязательно)",
+    addPhoto: "Добавить фото",
+    photoUploading: "Загрузка…",
+    photoError: "Ошибка загрузки",
+    removePhotoLabel: "Удалить фото",
     categories: {
       "no-heat": "Нет отопления",
       "no-hot-water": "Нет горячей воды",
@@ -211,6 +236,24 @@ export const STRINGS: Record<LangCode, IntakeStrings> = {
 };
 
 export const ALL_LANGS: LangCode[] = ["en", "es", "zh", "ru"];
+
+// Emoji shown on the "What's the problem?" quick-tap buttons. Language-neutral
+// (an emoji reads the same in every locale), keyed by the category slug so the
+// same map drives all four languages. Keys mirror the `categories` records.
+export const CATEGORY_ICONS: Record<string, string> = {
+  "no-heat": "🔥",
+  "no-hot-water": "🚿",
+  leak: "💧",
+  electrical: "💡",
+  appliance: "🧺",
+  "lock-key": "🔒",
+  pest: "🐜",
+  mold: "🦠",
+  elevator: "🛗",
+  intercom: "🔔",
+  "common-area": "🏢",
+  other: "➕",
+};
 
 export function detectInitialLanguage(): LangCode {
   if (typeof navigator === "undefined") return "en";
@@ -242,6 +285,8 @@ export interface IntakePayload {
   title: string;
   /** The tenant's selected language (ISO 639-1). */
   language: LangCode;
+  /** Storage paths of photos the tenant attached (via /api/intake/photo). */
+  photos?: string[];
 }
 
 /** App-provided submit handler. Returns the ticket number or an error message. */

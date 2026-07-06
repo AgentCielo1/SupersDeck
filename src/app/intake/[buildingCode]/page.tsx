@@ -67,6 +67,14 @@ export default function TenantIntakePage() {
     <MultilingualIntakeForm
       building={{ id: building.id, name: building.name, address: building.address }}
       trackUrlFor={(ticket) => `${publicBaseUrl()}/track/${ticket}`}
+      uploadPhoto={async (file) => {
+        const fd = new FormData();
+        fd.append("file", file);
+        const r = await fetch("/api/intake/photo", { method: "POST", body: fd });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || "Upload failed");
+        return d.path as string;
+      }}
       onSubmit={async (payload) => {
         const res = await fetch("/api/work-orders", {
           method: "POST",
