@@ -136,15 +136,26 @@ async function fetchWorkOrder(id: string): Promise<WorkOrder | undefined> {
       (w) => w.id === id || w.ticket_number === id
     );
   }
-  // Typed lookup — NEVER interpolate user input into a PostgREST .or() filter.
-  // A UUID-shaped id hits the primary key; anything else is a ticket number.
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-  const { data, error } = await (isUuid
-    ? s.from("work_orders").select("*").eq("id", id)
-    : s.from("work_orders").select("*").eq("ticket_number", id)
-  ).maybeSingle();
-  if (error || !data) return undefined;
-  return data as WorkOrder;
+  // Match by primary key OR ticket number, mirroring the seed lookup above.
+  // Both branches use parameterized `.eq` filters — user input is NEVER
+  // interpolated into a PostgREST `.or()` string — so this stays
+  // injection-safe. We must not assume the primary key is UUID-shaped:
+  // links pass `wo.id` verbatim (e.g. /work-orders/wo-1024/print), and a
+  // UUID-only gate would misroute non-UUID ids to a ticket-number lookup
+  // that can't match, 404-ing every work-order page.
+  const byId = await s
+    .from("work_orders")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (byId.data) return byId.data as WorkOrder;
+  const byTicket = await s
+    .from("work_orders")
+    .select("*")
+    .eq("ticket_number", id)
+    .maybeSingle();
+  if (byTicket.error || !byTicket.data) return undefined;
+  return byTicket.data as WorkOrder;
 }
 
 async function fetchMyVendors(): Promise<Vendor[]> {
