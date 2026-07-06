@@ -70,6 +70,7 @@ export default function TenantIntakePage() {
       uploadPhoto={async (file) => {
         const fd = new FormData();
         fd.append("file", file);
+        fd.append("building", building.id);
         const r = await fetch("/api/intake/photo", { method: "POST", body: fd });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.error || "Upload failed");

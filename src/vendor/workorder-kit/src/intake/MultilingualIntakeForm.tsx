@@ -11,6 +11,7 @@ import {
 } from "./strings";
 import { useVoiceCapture } from "./useVoiceCapture";
 import { IntakeConfirmation } from "./IntakeConfirmation";
+import { compressImage } from "./compressImage";
 
 // =============================================================================
 //  Multilingual tenant intake form (shared)
@@ -121,7 +122,9 @@ export function MultilingualIntakeForm({
       objectUrls.current.add(previewUrl);
       setPhotos((prev) => [...prev, { id, previewUrl, status: "uploading" }]);
       try {
-        const path = await uploadPhoto(file);
+        // Downscale + strip EXIF/GPS in the browser before it ever leaves the
+        // device (privacy + keeps the upload under the serverless body limit).
+        const path = await uploadPhoto(await compressImage(file));
         setPhotos((prev) =>
           prev.map((p) => (p.id === id ? { ...p, path, status: "done" } : p)),
         );
