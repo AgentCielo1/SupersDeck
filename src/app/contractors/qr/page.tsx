@@ -13,5 +13,15 @@ export default async function ContractorQrPage() {
     buildings = (data ?? []) as typeof buildings;
   }
 
-  return <QrPosterClient buildings={buildings} />;
+  // Optional GateLog interop: when the standalone GateLog app owns contractor
+  // sign-in, point each building's poster at its GateLog URL instead.
+  // GATELOG_SIGNIN_MAP = {"<supersdeck-building-id>": "https://gatelog…/s/<slug>"}
+  let overrides: Record<string, string> = {};
+  try {
+    overrides = JSON.parse(process.env.GATELOG_SIGNIN_MAP ?? "{}");
+  } catch {
+    overrides = {};
+  }
+
+  return <QrPosterClient buildings={buildings} overrides={overrides} />;
 }
