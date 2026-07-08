@@ -9,7 +9,14 @@ import { qrDataUrl } from "@workorder/kit/qr/qr";
 
 type B = { id: string; name: string; address?: string | null };
 
-export default function QrPosterClient({ buildings }: { buildings: B[] }) {
+export default function QrPosterClient({
+  buildings,
+  overrides = {},
+}: {
+  buildings: B[];
+  /** buildingId → external (GateLog) sign-in URL; falls back to the native flow. */
+  overrides?: Record<string, string>;
+}) {
   const [sel, setSel] = useState(buildings[0]?.id ?? "");
   const [origin, setOrigin] = useState("");
   const [qr, setQr] = useState("");
@@ -21,7 +28,7 @@ export default function QrPosterClient({ buildings }: { buildings: B[] }) {
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
   }, []);
 
-  const url = sel && origin ? `${origin}/sign-in/${sel}` : "";
+  const url = sel ? overrides[sel] ?? (origin ? `${origin}/sign-in/${sel}` : "") : "";
   useEffect(() => {
     if (!url) {
       setQr("");
