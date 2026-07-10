@@ -5,7 +5,8 @@ import WorkOrderTimeline, { type TimelineEvent } from "@/components/WorkOrderTim
 import { db } from "@/lib/db";
 import { relativeTime } from "@/lib/format";
 import { resolvePhotoUrls } from "@/lib/storage";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { createSupabaseServerClient, getCurrentUserProfile } from "@/lib/supabase-server";
+import DeleteWorkOrderButton from "@/components/DeleteWorkOrderButton";
 
 async function fetchTimeline(workOrderId: string): Promise<TimelineEvent[]> {
   const supabase = createSupabaseServerClient();
@@ -46,14 +47,16 @@ export default async function WorkOrderDetailPage({
   const wo = await db.workOrder(params.id);
   if (!wo) notFound();
 
-  const [building, units, photoUrls, timeline, vendor] = await Promise.all([
+  const [building, units, photoUrls, timeline, vendor, me] = await Promise.all([
     db.building(wo.building_id),
     wo.unit_id ? db.units() : Promise.resolve([]),
     resolvePhotoUrls(wo.photos ?? []),
     fetchTimeline(wo.id),
     fetchAssignedVendor(wo.assigned_vendor_id),
+    getCurrentUserProfile().catch(() => null),
   ]);
   const unit = wo.unit_id ? units.find((u) => u.id === wo.unit_id) : undefined;
+  const isAdmin = me?.role === "admin";
 
   // Always prepend a synthetic "Reported" event so the timeline starts at the
   // beginning even on tickets created before timeline logging existed.
@@ -105,6 +108,9 @@ export default async function WorkOrderDetailPage({
               >
                 ✓ Complete with signature
               </Link>
+            )}
+            {isAdmin && (
+              <DeleteWorkOrderButton id={wo.id} ticket={wo.ticket_number} />
             )}
           </div>
         }
