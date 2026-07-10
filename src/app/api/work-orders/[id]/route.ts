@@ -3,11 +3,12 @@ import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import { getServerSupabase } from "@/lib/supabase";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
-import { resolvePhotoUrls } from "@/lib/storage";
+import { resolvePhotoUrls, PHOTO_BUCKET } from "@/lib/storage";
 import { archiveCompletedWorkOrder } from "@/lib/wo-archive";
 import type { WorkOrder } from "@/types";
-import { requireRole, WRITE_ASMP } from "@/lib/authz";
+import { requireRole, WRITE_ASMP, ADMIN_ONLY } from "@/lib/authz";
 import { parseJson } from "@/lib/validation";
+import { pushWorkOrderToFHI } from "@/lib/fhi-sync";
 import { z } from "zod";
 
 // Partial-update body: every field optional. A server-side whitelist
@@ -300,7 +301,73 @@ export async function PATCH(
   revalidatePath(`/track/${data.ticket_number}`);
   revalidatePath("/", "layout");
 
+  // Mirror the edit to the FHI replica (no-op until sync is configured).
+  await pushWorkOrderToFHI("upsert", data);
+
   return NextResponse.json(data);
+}
+
+// =============================================================================
+//  DELETE /api/work-orders/:id — permanently remove a work order (admin only)
+// =============================================================================
+//  Destructive: removes the WO, its timeline rows, and any Storage-backed
+//  photos. Admin-gated like the other hard deletes (units/vendors/buildings).
+//  SupersDeck is the master, so a delete here is authoritative; propagation of
+//  the deletion to the FHI mirror is wired via the sync layer (added with the
+//  SupersDeck→FHI push).
+// =============================================================================
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  const auth = await requireRole(ADMIN_ONLY);
+  if (auth.response) return auth.response;
+  const supabase = getServerSupabase();
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
+  }
+
+  // Load first: confirm it exists and grab photos for storage cleanup.
+  const { data: wo } = await supabase
+    .from("work_orders")
+    .select("id, ticket_number, photos")
+    .eq("id", params.id)
+    .maybeSingle();
+  if (!wo) {
+    return NextResponse.json({ error: "Work order not found" }, { status: 404 });
+  }
+
+  // Best-effort: delete Storage-backed photos (skip legacy inline data: URLs).
+  const paths = Array.isArray(wo.photos)
+    ? (wo.photos as unknown[]).filter(
+        (p): p is string => typeof p === "string" && !p.startsWith("data:")
+      )
+    : [];
+  if (paths.length) {
+    await supabase.storage.from(PHOTO_BUCKET).remove(paths).then(undefined, () => {});
+  }
+
+  // Remove timeline rows first (FK), then the work order itself.
+  await supabase
+    .from("work_order_updates")
+    .delete()
+    .eq("work_order_id", params.id)
+    .then(undefined, () => {});
+
+  const { error } = await supabase.from("work_orders").delete().eq("id", params.id);
+  if (error) {
+    const msg = /foreign key|violates/i.test(error.message)
+      ? "Can't delete — this work order still has linked records."
+      : error.message;
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  // Mirror the deletion to the FHI replica (no-op until sync is configured).
+  await pushWorkOrderToFHI("delete", { id: params.id });
+
+  revalidatePath("/work-orders");
+  revalidatePath("/", "layout");
+  return NextResponse.json({ ok: true, deleted: wo.ticket_number });
 }
 
 // =============================================================================

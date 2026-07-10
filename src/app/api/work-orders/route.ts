@@ -7,6 +7,7 @@ import { pushToAdminsAndSupers } from "@/lib/push";
 import { translateToEnglish } from "@/lib/translate";
 import { getClientIp, isRateLimited } from "@/lib/ratelimit";
 import { parseJson, reqStr, optStr } from "@/lib/validation";
+import { pushWorkOrderToFHI } from "@/lib/fhi-sync";
 
 // building_id + reporter_name required. category/priority are further validated
 // against their allow-lists by the handler below; photos are filtered to strings
@@ -239,6 +240,10 @@ export async function POST(request: Request) {
     }).catch((e) => console.error("[work-orders] push notify failed:", e)),
     sendTenantConfirmation(data, bldg).catch((e) =>
       console.error("[work-orders] tenant email failed:", e)
+    ),
+    // Mirror the new WO to the FHI replica (no-op until sync is configured).
+    pushWorkOrderToFHI("upsert", data).catch((e) =>
+      console.error("[work-orders] FHI sync failed:", e)
     ),
   ]);
 
