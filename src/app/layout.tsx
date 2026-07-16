@@ -34,6 +34,8 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-ink-50 pb-16 text-ink-900 md:pb-0">
+        {/* legacy-browser-banner: warns unsupported browsers instead of failing silently */}
+        <script dangerouslySetInnerHTML={{__html:"window.addEventListener('load',function(){try{if(window.Promise&&window.fetch&&window.structuredClone&&''.replaceAll&&Object.fromEntries)return}catch(e){}var d=document.createElement('div');d.setAttribute('style','position:fixed;top:0;left:0;right:0;z-index:99999;background:#101F3C;color:#fff;font:14px/1.5 Arial,sans-serif;padding:10px 16px;text-align:center');d.innerHTML='This computer&#39;s browser is out of date and this app may not work correctly. Please update Google Chrome or Microsoft Edge. Requirements: borodesk.com';document.body.appendChild(d)});"}} />
         <AppShell user={user}>{children}</AppShell>
         <Sidebar user={user} />
         <MobileNav signedIn={Boolean(user)} isAdmin={user?.role === "admin"} />
