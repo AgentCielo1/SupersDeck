@@ -12,3 +12,4 @@ coverage
 
 # Vercel CLI link dir
 .vercel
+.env*
