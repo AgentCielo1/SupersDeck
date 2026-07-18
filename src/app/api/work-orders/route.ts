@@ -3,11 +3,13 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { pushToAdminsAndSupers } from "@/lib/push";
 import { translateToEnglish } from "@/lib/translate";
-import { getClientIp, isRateLimited } from "@/lib/ratelimit";
+import { getClientIp, isRateLimitedDurable } from "@/lib/ratelimit-durable";
 import { parseJson, reqStr, optStr } from "@/lib/validation";
 import { pushWorkOrderToFHI } from "@/lib/fhi-sync";
+import { intakeTokensEnabled, verifyIntakeToken } from "@/lib/intake-token";
 
 // building_id + reporter_name required. category/priority are further validated
 // against their allow-lists by the handler below; photos are filtered to strings
@@ -30,8 +32,17 @@ const CreateWorkOrderSchema = z.object({
 //  POST /api/work-orders — create a work order
 // =============================================================================
 //  Used by:
-//    - /work-orders/new           (super-side, requires auth)
-//    - /intake/[buildingCode]     (tenant-facing, no auth)
+//    - /work-orders/new           (super-side, Supabase session via middleware)
+//    - /intake/[buildingCode]     (tenant-facing, no account)
+//
+//  This route is on the middleware public allow-list because tenants don't
+//  have accounts — so it defends ITSELF:
+//    • durable per-IP rate limit BEFORE any paid work (translate/email/push)
+//    • callers with a valid Supabase session pass (dashboard flow)
+//    • anonymous callers must present x-intake-token — a building-scoped,
+//      expiring HMAC token minted server-side by the intake page
+//      (src/lib/intake-token.ts). Dormant until INTAKE_TOKEN_SECRET is set,
+//      so deploying this cannot break live intake before the env var lands.
 //
 //  We use the service-role client so the tenant intake (anonymous) can also
 //  insert. Reasonable since the public intake page restricts the building
@@ -84,7 +95,8 @@ function genTicketNumber(): string {
 export async function POST(request: Request) {
   // Public tenant intake spends money on every call (Claude translate + admin
   // emails + push fan-out) — rate-limit per IP BEFORE any of that work runs.
-  if (isRateLimited(`wo-intake:${getClientIp(request)}`, 8, 60_000)) {
+  // Durable (Upstash) so the limit holds across serverless instances.
+  if (await isRateLimitedDurable(`wo-intake:${getClientIp(request)}`, 8, 60_000)) {
     return NextResponse.json(
       { error: "Too many requests. Please wait a minute and try again." },
       { status: 429 },
@@ -101,6 +113,34 @@ export async function POST(request: Request) {
   const parsed = await parseJson(request, CreateWorkOrderSchema);
   if (parsed.response) return parsed.response;
   const body = parsed.data;
+
+  // ---------------------------------------------------------------------------
+  // Guard: signed-in staff pass; anonymous callers need a valid intake token
+  // bound to the building they're posting to. See src/lib/intake-token.ts.
+  // ---------------------------------------------------------------------------
+  const sessionClient = createSupabaseServerClient();
+  const user = sessionClient
+    ? (await sessionClient.auth.getUser()).data.user
+    : null;
+  if (!user) {
+    if (intakeTokensEnabled()) {
+      const token = request.headers.get("x-intake-token");
+      if (!verifyIntakeToken(token, String(body.building_id))) {
+        return NextResponse.json(
+          {
+            error:
+              "Missing or invalid intake token. Please reopen the intake page (scan the QR poster again) and resubmit.",
+          },
+          { status: 401 },
+        );
+      }
+    } else {
+      // Dormant mode: keep public intake working, but make the gap visible.
+      console.warn(
+        "[work-orders] INTAKE_TOKEN_SECRET not set — anonymous POST /api/work-orders is guarded by rate-limit only. Set the env var to enforce signed intake tokens.",
+      );
+    }
+  }
 
   // Validate the building exists (and is something the caller can target).
   const { data: bldg } = await supabase

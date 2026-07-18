@@ -1,0 +1,106 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { MultilingualIntakeForm } from "@workorder/kit/intake/MultilingualIntakeForm";
+import {
+  STRINGS,
+  detectInitialLanguage,
+  type LangCode,
+} from "@workorder/kit/intake/strings";
+import { publicBaseUrl } from "@/lib/format";
+
+// PUBLIC tenant intake (QR target). The multilingual speak-or-type form lives
+// in @workorder/kit; this client resolves the building + posts to the existing
+// SupersDeck work-orders API (which auto-translates to English server-side).
+//
+// `intakeToken` is minted server-side by page.tsx (see src/lib/intake-token.ts)
+// and rides along on every anonymous write as the x-intake-token header — the
+// API refuses anonymous POSTs without it once INTAKE_TOKEN_SECRET is set.
+export default function IntakeClient({
+  buildingCode,
+  intakeToken,
+}: {
+  buildingCode: string;
+  intakeToken: string;
+}) {
+  const buildingId = buildingCode;
+  const [building, setBuilding] = useState<{
+    id: string;
+    name: string;
+    address: string;
+  } | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [lang, setLang] = useState<LangCode>("en");
+  const t = STRINGS[lang];
+
+  useEffect(() => setLang(detectInitialLanguage()), []);
+
+  useEffect(() => {
+    if (!buildingId) return;
+    let cancelled = false;
+    fetch(`/api/buildings/${buildingId}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((b) => {
+        if (!cancelled) setBuilding(b);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [buildingId]);
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-md p-8 text-center">
+        <h1 className="text-lg font-semibold">{t.invalidCode}</h1>
+        <p className="mt-2 text-sm text-zinc-500">{t.invalidCodeBody}</p>
+      </div>
+    );
+  }
+
+  if (!building) {
+    return (
+      <div className="mx-auto max-w-md p-8 text-center text-sm text-zinc-500">
+        {t.loading}
+      </div>
+    );
+  }
+
+  return (
+    <MultilingualIntakeForm
+      building={{ id: building.id, name: building.name, address: building.address }}
+      trackUrlFor={(ticket) => `${publicBaseUrl()}/track/${ticket}`}
+      uploadPhoto={async (file) => {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("building", building.id);
+        const r = await fetch("/api/intake/photo", {
+          method: "POST",
+          headers: { "x-intake-token": intakeToken },
+          body: fd,
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || "Upload failed");
+        return d.path as string;
+      }}
+      onSubmit={async (payload) => {
+        const res = await fetch("/api/work-orders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-intake-token": intakeToken,
+          },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return { error: data.error };
+        return { ticket_number: data.ticket_number };
+      }}
+    />
+  );
+}
