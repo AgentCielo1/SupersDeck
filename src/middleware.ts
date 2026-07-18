@@ -22,7 +22,10 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 const PUBLIC_PATHS = ["/login", "/auth", "/intake", "/track", "/sign-in"];
 
 // API endpoints that tenant intake + contractor sign-in call anonymously.
-// Whitelisted by method so PATCH/DELETE variants of the same paths stay private:
+// Whitelisted by method so PATCH/DELETE variants of the same paths stay private.
+// NOTE: "public" here means middleware doesn't redirect to /login — the WO +
+// photo routes still defend themselves (durable per-IP rate limit + the signed
+// x-intake-token guard from src/lib/intake-token.ts for anonymous callers).
 //   • POST /api/work-orders          — tenant submits a new ticket from /intake.
 //   • POST /api/intake/photo         — tenant attaches a photo to that ticket.
 //   • GET  /api/buildings/<id>       — /intake + QR posters fetch building info.

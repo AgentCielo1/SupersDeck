@@ -196,7 +196,8 @@ create index if not exists idx_certs_expiry on certifications (expires_at);
 -- ----------------------------- Row Level Security stubs -------------------
 -- IMPORTANT: Supabase enables RLS by default on tables created via its UI.
 -- Tables created here via raw SQL also inherit it on some Supabase versions.
--- After running this schema, ALSO run `supabase/disable-rls-for-dev.sql`
+-- After running this schema on a DEV project, ALSO run
+-- `supabase/dev/disable-rls-for-dev.sql` (dev-only; it has a guard)
 -- to allow the app's anon-keyed reads. When auth lands in phase 4, replace
 -- the disable with real per-role policies.
 -- alter table buildings enable row level security;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabase";
 import { getClientIp, isRateLimitedDurable } from "@/lib/ratelimit-durable";
 import { PHOTO_BUCKET } from "@/lib/storage";
+import { intakeTokensEnabled, verifyIntakeToken } from "@/lib/intake-token";
 
 // =============================================================================
 //  POST /api/intake/photo — anonymous tenant photo upload for the QR intake
@@ -110,6 +111,23 @@ export async function POST(request: Request) {
   }
 
   const building = safeBuilding(form.get("building"));
+
+  // Same guard as POST /api/work-orders: anonymous uploads must carry the
+  // building-scoped intake token minted by the intake page. Dormant until
+  // INTAKE_TOKEN_SECRET is set (src/lib/intake-token.ts).
+  if (intakeTokensEnabled()) {
+    const token = request.headers.get("x-intake-token");
+    if (!verifyIntakeToken(token, building)) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing or invalid intake token. Please reopen the intake page and try again.",
+        },
+        { status: 401 },
+      );
+    }
+  }
+
   const path = `intake/${building}/${crypto.randomUUID()}.${ext}`;
 
   const { error } = await supabase.storage
