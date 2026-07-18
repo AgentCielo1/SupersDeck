@@ -66,7 +66,10 @@ the `anon` role gets blocked from reading anything — which makes the whole
 app look empty even though the rows are sitting in Postgres.
 
 For phase 1-3 (single-super, no auth) just disable RLS. SQL Editor → **New
-query** → paste the contents of `supabase/disable-rls-for-dev.sql` → Run.
+query** → paste the contents of
+`supabase/dev/disable-rls-for-dev.sql`, uncomment its dev-database guard line
+(it refuses to run otherwise — see the header), then Run. **Dev projects
+only — never run it against the production project.**
 
 Verify it worked with a quick curl from your supersdeck folder:
 
@@ -80,7 +83,8 @@ Should print `[{"name":"Building 1"},{"name":"Building 2"},{"name":"Building 3"}
 If it prints `[]`, the RLS is still on; re-run the disable script.
 
 When auth lands in phase 4, re-enable RLS with proper per-role policies. See
-the comment block at the top of `disable-rls-for-dev.sql` for an example.
+the comment block at the bottom of `supabase/dev/disable-rls-for-dev.sql`
+for an example.
 
 ---
 
@@ -141,7 +145,7 @@ session never sets. Spend the 30 seconds.
 `supabase/auth-setup.sql` → Run. This creates the `profiles` table, the
 auto-create-profile trigger, and **re-enables RLS** on every app table with
 policies that allow any authenticated user to do everything. (That replaces
-the `disable-rls-for-dev.sql` step from phase 1; per-role policies will land
+the `supabase/dev/disable-rls-for-dev.sql` step from phase 1; per-role policies will land
 in phase 5.)
 
 **5d. Restart the dev server** (`Ctrl-C`, `rm -rf .next`, `npm run dev`) so

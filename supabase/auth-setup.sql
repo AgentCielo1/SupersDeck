@@ -2,7 +2,7 @@
 -- SupersDeck — Phase 4 auth setup
 -- =============================================================================
 -- Run this ONCE on a project that already has schema.sql + seed.sql applied.
--- It replaces the `disable-rls-for-dev.sql` step: we re-enable RLS on every
+-- It replaces the dev-only `supabase/dev/disable-rls-for-dev.sql` step: we re-enable RLS on every
 -- app table with policies that allow authenticated users to do everything
 -- (per-role fine-grained policies land in phase 5).
 --
