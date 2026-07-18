@@ -39,9 +39,22 @@ const COLUMNS = [
   "signed_at",
 ];
 
+/**
+ * Leading characters Excel/Google Sheets/LibreOffice treat as the start of a
+ * formula. A work-order title of `=HYPERLINK("http://evil","click")` would
+ * otherwise execute in the exporter's spreadsheet — CSV formula injection.
+ */
+const DANGEROUS_LEADING_CHARS = /^[=+\-@\t\r]/;
+
 function csvEscape(v: unknown): string {
   if (v === null || v === undefined) return "";
-  const s = typeof v === "string" ? v : String(v);
+  let s = typeof v === "string" ? v : String(v);
+  // OWASP CSV-injection mitigation: neutralize a formula-triggering leading
+  // character with a single-quote prefix BEFORE RFC 4180 quoting, so the cell
+  // is read as text rather than evaluated.
+  if (DANGEROUS_LEADING_CHARS.test(s)) {
+    s = `'${s}`;
+  }
   // RFC 4180: wrap in quotes if contains comma, quote, CR, or LF. Inside,
   // escape quotes by doubling them.
   if (/[",\r\n]/.test(s)) {
