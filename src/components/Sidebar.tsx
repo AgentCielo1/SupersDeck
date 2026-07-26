@@ -125,6 +125,12 @@ export default function Sidebar({ user }: { user: SidebarUser | null }) {
               </div>
             </div>
           </div>
+          <Link
+            href="/account"
+            className="mt-1 block rounded-md px-3 py-1.5 text-xs text-ink-400 hover:bg-ink-100 hover:text-ink-900"
+          >
+            Account
+          </Link>
           <a
             href="/auth/signout"
             className="mt-1 block rounded-md px-3 py-1.5 text-xs text-ink-400 hover:bg-ink-100 hover:text-ink-900"
