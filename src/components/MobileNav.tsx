@@ -38,6 +38,7 @@ const MORE = [
   { href: "/owner-report/preview", label: "Owner report", icon: "M9 17v-2a2 2 0 012-2h2a2 2 0 012 2v2m-6 0h6m-6 0H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-4" },
   { href: "/vendors", label: "My vendors", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
   { href: "/vendors/directory", label: "Vendor directory", icon: "M3 7h18M3 12h18M3 17h18" },
+  { href: "/account", label: "Account", icon: "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" },
 ];
 
 const ADMIN_MORE = [
