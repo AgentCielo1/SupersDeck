@@ -33,10 +33,12 @@ self.addEventListener("push", (event) => {
     icon: "/icon.svg",
     badge: "/icon.svg",
     // Vibrate: short-long-short. iOS PWAs ignore vibrate but Android honors it.
-    vibrate: [120, 60, 200],
+    vibrate: payload.priority === "emergency" ? [200, 80, 200, 80, 200] : [120, 60, 200],
     tag: payload.tag || "supersdeck",
     renotify: true,
-    data: { url: payload.url || "/" },
+    // actions: in-notification buttons (e.g. "Acknowledge"). iOS ignores them.
+    actions: Array.isArray(payload.actions) ? payload.actions : [],
+    data: { url: payload.url || "/", alertId: payload.alertId || null },
     requireInteraction: payload.priority === "emergency",
   };
 
@@ -45,7 +47,13 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || "/";
+  const data = event.notification.data || {};
+  let targetUrl = data.url || "/";
+  // Tapping the "Acknowledge" action deep-links to the alert with ack intent
+  // so the app can open the acknowledgment flow immediately.
+  if (event.action === "acknowledge" && data.alertId) {
+    targetUrl = "/alerts/" + data.alertId + "?ack=1";
+  }
 
   event.waitUntil(
     self.clients
