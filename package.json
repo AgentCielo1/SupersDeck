@@ -13,6 +13,7 @@
   "dependencies": {
     "@react-pdf/renderer": "^4.3.0",
     "@sentry/nextjs": "^10.62.0",
+    "@stripe/stripe-js": "^9.8.0",
     "@supabase/ssr": "0.5.1",
     "@supabase/supabase-js": "2.45.0",
     "clsx": "2.1.1",
@@ -23,6 +24,8 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "resend": "4.0.1",
+    "stripe": "^22.3.0",
+    "twilio": "^6.0.2",
     "web-push": "3.6.7",
     "zod": "^4.4.3"
   },
