@@ -17,6 +17,18 @@ export async function GET(request: Request) {
   const path = new URL(request.url).searchParams.get("path") ?? "";
   if (!path) return NextResponse.json({ error: "path required" }, { status: 400 });
   try {
+    // Real PDFs: stream the raw bytes same-origin (no CORS, no attachment
+    // disposition, no size buffering) — see DropboxProvider.downloadStream.
+    if (path.toLowerCase().endsWith(".pdf")) {
+      const upstream = await provider.downloadStream(path);
+      return new NextResponse(upstream.body, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": "inline",
+          "Cache-Control": "private, max-age=600",
+        },
+      });
+    }
     const bytes = await provider.pdfPreview(path);
     return new NextResponse(bytes, {
       headers: {
