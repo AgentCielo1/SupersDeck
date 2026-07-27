@@ -147,7 +147,9 @@ export default function GalleryViewer({
             <audio key={item.path} src={streamSrc(item.path)} controls className="w-full max-w-lg" />
           </div>
         )}
-        {kind === "pdf" && <PdfViewer key={item.path} url={streamSrc(item.path)} />}
+        {/* PDFs go through the same-origin proxy — the redirect-to-Dropbox
+            stream URL is unusable for pdf.js (credentialed CORS vs ACAO:*). */}
+        {kind === "pdf" && <PdfViewer key={item.path} url={previewSrc(item.path)} />}
         {kind === "office" && <PdfViewer key={item.path} url={previewSrc(item.path)} />}
         {kind === "other" && (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-white/70">

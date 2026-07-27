@@ -153,6 +153,24 @@ export class DropboxProvider implements CloudProvider {
     return r.link;
   }
 
+  /**
+   * Raw file bytes as a streamable Response (used to proxy PDFs same-origin).
+   * pdf.js can't fetch the temp link directly: the credentialed request that
+   * our auth requires is rejected by Dropbox's `Access-Control-Allow-Origin: *`,
+   * and the temp link's `Content-Disposition: attachment` forces downloads.
+   */
+  async downloadStream(path: string): Promise<Response> {
+    const res = await fetch(`${CONTENT}/2/files/download`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        "Dropbox-API-Arg": JSON.stringify({ path }),
+      },
+    });
+    if (!res.ok || !res.body) throw new Error(`download failed (${res.status})`);
+    return res;
+  }
+
   async pdfPreview(path: string): Promise<ArrayBuffer> {
     const res = await fetch(`${CONTENT}/2/files/get_preview`, {
       method: "POST",
