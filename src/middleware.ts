@@ -148,6 +148,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   // Skip static assets and the manifest. Everything else runs through.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.json|icon-.*\\.png|templates/.*).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|icon-.*\\.png|pdf.worker.min.mjs|templates/.*).*)",
   ],
 };
