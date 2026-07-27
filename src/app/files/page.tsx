@@ -1,3 +1,4 @@
+import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import FilesBrowser, { type FileRow } from "./FilesBrowser";
 import { db } from "@/lib/db";
@@ -56,6 +57,14 @@ export default async function FilesPage() {
       <PageHeader
         title="Files"
         subtitle="Building & tenant documents — upload, tag, search, download. Private (signed links)."
+        actions={
+          <Link
+            href="/files/cloud"
+            className="rounded-md border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
+          >
+            ☁ Cloud drive
+          </Link>
+        }
       />
       <FilesBrowser
         rows={rows}

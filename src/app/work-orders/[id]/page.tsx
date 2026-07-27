@@ -7,6 +7,7 @@ import { relativeTime } from "@/lib/format";
 import { resolvePhotoUrls } from "@/lib/storage";
 import { createSupabaseServerClient, getCurrentUserProfile } from "@/lib/supabase-server";
 import DeleteWorkOrderButton from "@/components/DeleteWorkOrderButton";
+import FileToCloudButton from "@/components/FileToCloudButton";
 
 async function fetchTimeline(workOrderId: string): Promise<TimelineEvent[]> {
   const supabase = createSupabaseServerClient();
@@ -109,6 +110,7 @@ export default async function WorkOrderDetailPage({
                 ✓ Complete with signature
               </Link>
             )}
+            <FileToCloudButton id={wo.id} />
             {isAdmin && (
               <DeleteWorkOrderButton id={wo.id} ticket={wo.ticket_number} />
             )}
