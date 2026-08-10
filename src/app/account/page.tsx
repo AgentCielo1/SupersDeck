@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
 import ChangePassword from "@/components/ChangePassword";
+import SignOutLink from "@/components/SignOutLink";
 
 // =============================================================================
 //  /account — the signed-in user's self-service home (Production Standard §2.5d)
@@ -62,12 +63,7 @@ export default async function AccountPage() {
       {/* Sign out */}
       <section className="mt-4 rounded-xl2 border border-ink-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-ink-900">Session</h2>
-        <a
-          href="/auth/signout"
-          className="mt-3 inline-block rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-100"
-        >
-          Sign out
-        </a>
+        <SignOutLink className="mt-3 inline-block cursor-pointer rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-100" />
       </section>
     </div>
   );

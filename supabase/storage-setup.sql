@@ -1,5 +1,15 @@
 -- =============================================================================
--- SupersDeck — Phase 5 storage setup
+-- ⚠️  SUPERSEDED — DO NOT RUN. See supabase/migration-storage-buckets.sql.
+-- =============================================================================
+-- Kept for provenance only. This file creates and hardens `wo-photos`; the
+-- application has used `work-orders` since the cloud-drive work (see
+-- src/lib/buckets.ts), so every policy below governs a bucket nothing reads,
+-- and its `using (bucket_id = ...)` predicates carry no org or path scoping.
+-- Running it now would re-add the tenant-blind policies the replacement drops.
+-- =============================================================================
+
+-- =============================================================================
+-- SupersDeck — Phase 5 storage setup (historical)
 -- =============================================================================
 -- Creates the `wo-photos` bucket (private) for work-order before/after images
 -- and the matching RLS policies so signed-in users can upload, read, delete.

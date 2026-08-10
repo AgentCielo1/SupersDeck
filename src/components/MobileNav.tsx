@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
+import SignOutLink from "@/components/SignOutLink";
 
 // =============================================================================
 //  MobileNav — fixed bottom nav for screens narrower than md (768px)
@@ -138,11 +139,7 @@ export default function MobileNav({
             );
           })}
           <li className="mt-2 border-t border-ink-100 pt-2">
-            <a
-              href="/auth/signout"
-              onClick={() => setSheetOpen(false)}
-              className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium text-ink-600 hover:bg-ink-100"
-            >
+            <SignOutLink className="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium text-ink-600 hover:bg-ink-100">
               <svg
                 className="h-5 w-5 flex-shrink-0"
                 viewBox="0 0 24 24"
@@ -155,7 +152,7 @@ export default function MobileNav({
                 <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
               Sign out
-            </a>
+            </SignOutLink>
           </li>
         </ul>
       </div>

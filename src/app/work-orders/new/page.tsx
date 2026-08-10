@@ -10,7 +10,7 @@ import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { SAMPLE_BUILDINGS } from "@/data/sample-data";
 
 // Live private bucket for WO photos + attachments (see PHOTO_BUCKET in lib/storage).
-const WO_BUCKET = "work-orders";
+import { PHOTO_BUCKET as WO_BUCKET } from "@/lib/buckets";
 
 const CATEGORIES = [
   "no-heat",

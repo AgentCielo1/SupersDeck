@@ -82,16 +82,17 @@ export async function getCurrentUserProfile(): Promise<CurrentUserProfile | null
     .eq("id", user.id)
     .maybeSingle();
 
-  // Fall back to the bare user record if profiles row hasn't been created yet
-  // (e.g. trigger hasn't fired, or the profiles table doesn't exist yet).
-  return (
-    (profile as CurrentUserProfile | null) ?? {
-      id: user.id,
-      email: user.email ?? "",
-      full_name: null,
-      role: "super",
-    }
-  );
+  // NO FALLBACK. This used to synthesize `{ role: "super" }` when the profiles
+  // row was missing, on the theory that the signup trigger might not have fired
+  // yet. That made an absent row a privilege GRANT: every service-role route
+  // gates on requireRole(), requireRole gates on this, and a user with no
+  // profile came back as the highest operational role in the product.
+  //
+  // A missing profile is now indistinguishable from signed-out, so callers deny.
+  // The cost is that a genuinely half-provisioned account sees "Not signed in"
+  // until an admin creates its profiles row — which is the correct direction to
+  // fail, and is a fixable support ticket rather than a silent escalation.
+  return (profile as CurrentUserProfile | null) ?? null;
 }
 
 /** The current user's org (RLS-gated to their own org), or null. Used by the

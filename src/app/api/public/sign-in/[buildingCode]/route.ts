@@ -12,6 +12,7 @@ import {
   blockedMessage,
   recordBlockedAttempt,
 } from "@/lib/contractor-gate";
+import { CONTRACTOR_PHOTO_BUCKET } from "@/lib/buckets";
 
 // =============================================================================
 //  PUBLIC contractor sign-in (QR target) — no auth.
@@ -207,7 +208,7 @@ export async function POST(
       if (bytes.length > 0 && bytes.length <= MAX_PHOTO_BYTES && (isJpeg || isPng)) {
         const path = `${building_id}/${visitId}.jpg`;
         const { error: upErr } = await supabase.storage
-          .from("contractor-photos")
+          .from(CONTRACTOR_PHOTO_BUCKET)
           .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
         if (!upErr) photoUrl = path;
       }

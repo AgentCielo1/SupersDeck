@@ -55,6 +55,37 @@ export async function removeOffline(id: string): Promise<void> {
   db.close();
 }
 
+/**
+ * Delete every cached document. Called on sign-out (components/SignOutLink).
+ *
+ * Signing out used to clear the Supabase session and nothing else, so the
+ * document blobs cached here — leases, notices, tenant correspondence — stayed
+ * on the device, readable by whoever signed in next or whoever found the phone.
+ * Dropping the whole database rather than iterating keys means a store added
+ * later is covered without anyone remembering to add it here.
+ *
+ * Never throws: a failure to purge must not strand the user in a
+ * half-signed-out state. It resolves once the delete completes, is blocked, or
+ * the browser has no IndexedDB at all.
+ */
+export async function clearOffline(): Promise<void> {
+  try {
+    if (typeof indexedDB === "undefined") return;
+    await new Promise<void>((resolve) => {
+      const req = indexedDB.deleteDatabase(DB_NAME);
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+      // Another open tab holds a connection. We can't force it shut, so don't
+      // hang the sign-out on it — the next load of that tab is unauthenticated
+      // anyway, and this resolves on its own when the tab closes.
+      req.onblocked = () => resolve();
+    });
+  } catch {
+    // No IndexedDB (private mode, embedded webview). Nothing cached, nothing
+    // to purge.
+  }
+}
+
 export async function listOffline(): Promise<string[]> {
   try {
     const db = await openDb();

@@ -7,9 +7,11 @@ import PageHeader from "@/components/PageHeader";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
 import type { WorkOrder } from "@/types";
 
-// Inline here (not imported from @/lib/storage) — that file uses next/headers
-// for server-only photo signing, which can't be imported by client components.
-const PHOTO_BUCKET = "wo-photos";
+// From @/lib/buckets, NOT @/lib/storage — storage.ts uses next/headers for
+// server-only photo signing and can't be imported by a client component. This
+// used to be a local `const PHOTO_BUCKET = "wo-photos"`, which silently sent
+// every photo attached from this screen to a bucket nothing else reads.
+import { PHOTO_BUCKET } from "@/lib/buckets";
 
 const CATEGORIES = [
   "no-heat", "no-hot-water", "leak", "electrical", "appliance",
