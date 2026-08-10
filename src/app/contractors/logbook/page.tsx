@@ -2,6 +2,7 @@ import StatCard from "@/components/StatCard";
 import { getServerSupabase } from "@/lib/supabase";
 import { visitMethodLabel } from "@workorder/kit/contractor/contract";
 import type { ContractorVisitRow } from "@/types/contractors";
+import { CONTRACTOR_PHOTO_BUCKET } from "@/lib/buckets";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export default async function ContractorLogbookPage() {
     const paths = visits.map((x) => x.photo_url).filter(Boolean) as string[];
     if (paths.length) {
       const { data: signed } = await supabase.storage
-        .from("contractor-photos")
+        .from(CONTRACTOR_PHOTO_BUCKET)
         .createSignedUrls(paths, 3600);
       (signed ?? []).forEach((s: { path?: string | null; signedUrl?: string | null }) => {
         if (s.path && s.signedUrl) photoUrls[s.path] = s.signedUrl;

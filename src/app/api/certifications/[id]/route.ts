@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM, ADMIN_ONLY } from "@/lib/authz";
 import { parseJson } from "@/lib/validation";
+import { DOC_BUCKET } from "@/lib/buckets";
 
 // Partial-update body: every field optional. A server-side whitelist (ALLOWED)
 // still filters what reaches the DB, and the handler does its own
@@ -84,7 +85,7 @@ export async function DELETE(
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   if (cert?.photo_path) {
-    await supabase.storage.from("documents").remove([cert.photo_path]).catch(() => {});
+    await supabase.storage.from(DOC_BUCKET).remove([cert.photo_path]).catch(() => {});
   }
   revalidatePath("/certifications");
   return NextResponse.json({ ok: true });

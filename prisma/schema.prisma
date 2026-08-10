@@ -1,0 +1,14 @@
+// SupersDeck data layer — Cielo Platform Standard (Prisma 7).
+// Schema will be INTROSPECTED READ-ONLY from prod izfz (no migrations dir exists;
+// ad-hoc SQL has drifted). Connection in prisma.config.ts (DIRECT_URL);
+// runtime = pooled adapter in src/lib/prisma.ts. Prisma bypasses RLS → authz
+// stays in src/lib/authz.ts (requireRole RBAC) + scoped helpers; RLS backstop stays.
+datasource db {
+  provider = "postgresql"
+  // `auth` included only so FKs to auth.users resolve; never migrated by us.
+  schemas  = ["auth", "public"]
+}
+
+generator client {
+  provider = "prisma-client-js"
+}

@@ -135,7 +135,10 @@ export async function POST(request: Request) {
         );
       }
     } else {
-      // Dormant mode: keep public intake working, but make the gap visible.
+      // Dev/CI only. In production this branch is unreachable: the server
+      // refuses to boot without INTAKE_TOKEN_SECRET (src/lib/production-env.ts),
+      // because a console.warn is not a control — this one ran for months into
+      // a serverless log nobody reads while the endpoint stayed open.
       console.warn(
         "[work-orders] INTAKE_TOKEN_SECRET not set — anonymous POST /api/work-orders is guarded by rate-limit only. Set the env var to enforce signed intake tokens.",
       );
