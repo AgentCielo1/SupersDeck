@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
+import SignOutLink from "@/components/SignOutLink";
 
 const NAV: { href: string; label: string; icon: string }[] = [
   { href: "/", label: "Dashboard", icon: "M3 12l9-9 9 9M5 10v10h14V10" },
@@ -132,12 +133,7 @@ export default function Sidebar({ user }: { user: SidebarUser | null }) {
           >
             Account
           </Link>
-          <a
-            href="/auth/signout"
-            className="mt-1 block rounded-md px-3 py-1.5 text-xs text-ink-400 hover:bg-ink-100 hover:text-ink-900"
-          >
-            Sign out
-          </a>
+          <SignOutLink className="mt-1 block rounded-md px-3 py-1.5 text-xs text-ink-400 hover:bg-ink-100 hover:text-ink-900" />
         </div>
       )}
 

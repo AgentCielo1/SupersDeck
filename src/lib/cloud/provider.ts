@@ -39,8 +39,11 @@ export interface CloudProvider {
   list(path: string): Promise<CloudEntry[]>;
   /** Small image thumbnail (jpeg/png bytes) for image-like files. */
   thumbnail(path: string, size?: "small" | "medium" | "large"): Promise<{ bytes: ArrayBuffer; contentType: string }>;
-  /** Short-lived direct URL for streaming/viewing the raw file (img/video/pdf…). */
-  streamUrl(path: string): Promise<string>;
+  /** Raw bytes, streamable. `range` (an HTTP Range header) is optional and
+   *  forwarded to the provider so viewers can seek. Implementations must NOT
+   *  offer a "hand the browser a signed provider URL" shortcut — see the note
+   *  in dropbox.ts about get_temporary_link. */
+  downloadStream(path: string, range?: string): Promise<Response>;
   /** PDF rendition of an Office document (docx/xlsx/pptx/rtf…), as bytes. */
   pdfPreview(path: string): Promise<ArrayBuffer>;
   /** Upload bytes to a path (autorename on conflict). Returns the final path. */

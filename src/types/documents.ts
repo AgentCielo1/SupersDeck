@@ -4,7 +4,7 @@
 
 // Private Supabase Storage bucket for documents. Declared here (not in the
 // server-only storage.ts) so client components can import it safely.
-export const DOC_BUCKET = "documents";
+export { DOC_BUCKET } from "@/lib/buckets";
 
 export const DOC_CATEGORIES = [
   "Lease",

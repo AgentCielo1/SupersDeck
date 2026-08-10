@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getServerSupabase } from "@/lib/supabase";
 import { complianceTemplateById } from "@/data/compliance-templates";
 import CertificationsClient, { type CertRow } from "./CertificationsClient";
+import { DOC_BUCKET } from "@/lib/buckets";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export default async function CertificationsPage() {
   if (paths.length) {
     const supabase = getServerSupabase();
     if (supabase) {
-      const { data } = await supabase.storage.from("documents").createSignedUrls(paths, 60 * 60);
+      const { data } = await supabase.storage.from(DOC_BUCKET).createSignedUrls(paths, 60 * 60);
       for (const s of data ?? []) if (s.path && s.signedUrl) signed.set(s.path, s.signedUrl);
     }
   }

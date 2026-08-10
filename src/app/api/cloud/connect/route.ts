@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { requireRole, ADMIN_ONLY } from "@/lib/authz";
-import { DROPBOX_APP_KEY } from "@/lib/cloud/dropbox";
+import { DROPBOX_APP_KEY, DROPBOX_SCOPES } from "@/lib/cloud/dropbox";
 
 // =============================================================================
 //  GET /api/cloud/connect — begin the Dropbox OAuth (PKCE) flow. Admin only.
@@ -44,6 +44,12 @@ export async function GET(request: Request) {
     "&code_challenge_method=S256" +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     "&token_access_type=offline" +
+    // Ask for exactly the four scopes this app uses. Without `scope` the grant
+    // is whatever the Dropbox app console happens to have ticked — defined by a
+    // dashboard nobody reviews rather than by this file. Deliberately NO
+    // include_granted_scopes: that would silently carry forward any scope a
+    // previous grant collected, which is the opposite of least privilege.
+    `&scope=${encodeURIComponent(DROPBOX_SCOPES.join(" "))}` +
     `&state=${state}`;
 
   return NextResponse.redirect(url);

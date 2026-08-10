@@ -1,0 +1,82 @@
+{
+  "testCommand": "npm test --silent",
+  "guards": [
+    {
+      "name": "H1: a path outside the allowlisted subtree must be refused",
+      "file": "src/lib/cloud/path-guard.ts",
+      "find": "  if (!roots.some((r) => isInside(path, r))) {\n    return { ok: false, reason: \"outside_root\" };\n  }",
+      "replace": "  if (false) {\n    return { ok: false, reason: \"outside_root\" };\n  }",
+      "expect": "denies a sibling folder while allowing the real one"
+    },
+    {
+      "name": "H1: '..' must be rejected, not resolved away",
+      "file": "src/lib/cloud/path-guard.ts",
+      "find": "  if (s.split(\"/\").some((seg) => seg === \"..\")) {\n    return { ok: false, reason: \"traversal\" };\n  }",
+      "replace": "  if (false) {\n    return { ok: false, reason: \"traversal\" };\n  }",
+      "expect": "rejects '..' but allows a name that merely CONTAINS dots"
+    },
+    {
+      "name": "H1: an unconfigured allowlist must DENY, never allow-all",
+      "file": "src/lib/cloud/path-guard.ts",
+      "find": "  if (roots.length === 0) return { ok: false, reason: \"not_configured\" };",
+      "replace": "  if (roots.length === 0) return { ok: true, kind: \"file\", path: String(raw ?? \"\") };",
+      "expect": "is DENY-by-default when unconfigured"
+    },
+    {
+      "name": "H1: a root-name prefix must not be treated as being inside the root",
+      "file": "src/lib/cloud/path-guard.ts",
+      "find": "  return p === r || p.startsWith(`${r}/`);",
+      "replace": "  return p.startsWith(r);",
+      "expect": "is not fooled by a prefix that merely STARTS with the root name"
+    },
+    {
+      "name": "H1: the account root must never be served as a file",
+      "file": "src/lib/cloud/path-guard.ts",
+      "find": "    if (roots.length === 1) return { ok: true, kind: \"file\", path: roots[0] };",
+      "replace": "    if (roots.length === 1) return { ok: true, kind: \"file\", path: \"\" };",
+      "expect": "substitutes the single configured root"
+    },
+    {
+      "name": "H4: a signed-in user with no profiles row must NOT become a super",
+      "file": "src/lib/supabase-server.ts",
+      "find": "  return (profile as CurrentUserProfile | null) ?? null;",
+      "replace": "  return (profile as CurrentUserProfile | null) ?? { id: user.id, email: user.email ?? \"\", full_name: null, role: \"super\" };",
+      "expect": "returns NULL for a signed-in user with no profiles row"
+    },
+    {
+      "name": "H4: requireRole must deny a null profile",
+      "file": "src/lib/authz.ts",
+      "find": "  if (!me) {\n    return { response: NextResponse.json({ error: \"Not signed in.\" }, { status: 401 }) };\n  }",
+      "replace": "  if (!me) {\n    return { profile: { id: \"x\", email: \"x\", full_name: null, role: \"super\" } as Profile };\n  }",
+      "expect": "DENIES a user with no profile row"
+    },
+    {
+      "name": "H2: a missing INTAKE_TOKEN_SECRET must refuse the production boot",
+      "file": "src/lib/production-env.ts",
+      "find": "  if (skipValidation) return false;\n  if (nodeEnv !== \"production\") return false;\n  return !hasSecret;",
+      "replace": "  return false;",
+      "expect": "FIRES in production with no secret"
+    },
+    {
+      "name": "M1: the tenant directory must stay tighter than the cloud drive",
+      "file": "src/lib/authz.ts",
+      "find": "export const TENANT_PII: Role[] = [\"admin\", \"super\"];",
+      "replace": "export const TENANT_PII: Role[] = [\"admin\", \"super\", \"manager\", \"porter\", \"read_only\"];",
+      "expect": "TENANT_PII"
+    },
+    {
+      "name": "M3: the FHI signature must cover the timestamp and nonce, not just the body",
+      "file": "src/lib/fhi-sync.ts",
+      "find": "  return `${timestamp}.${nonce}.${body}`;",
+      "replace": "  return body;",
+      "expect": "binds the timestamp and nonce into the signed material"
+    },
+    {
+      "name": "M4: signing out must purge the offline document cache",
+      "file": "src/lib/offline-files.ts",
+      "find": "      const req = indexedDB.deleteDatabase(DB_NAME);",
+      "replace": "      const req = { } as IDBOpenDBRequest; queueMicrotask(() => (req as unknown as { onsuccess?: () => void }).onsuccess?.());",
+      "expect": "deletes the offline database by name"
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
 import { DropboxProvider } from "@/lib/cloud/dropbox";
+import { resolveCloudPath, denialResponse } from "@/lib/cloud/path-guard";
 
 // POST /api/cloud/upload — multipart upload into the connected drive
 // (admin/super/manager). Field `folder` = destination folder path.
@@ -21,7 +22,17 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid upload." }, { status: 400 });
   }
-  const folder = String(form.get("folder") ?? "");
+  // The destination folder comes from the browser, so it gets the same
+  // confinement as every read path. Without it this route is the write-side
+  // twin of the H1 traversal: a caller could drop files anywhere in the
+  // connected account, including folders SupersDeck will not show them.
+  const resolved = resolveCloudPath(form.get("folder")?.toString());
+  if (!resolved.ok) {
+    const { status, error } = denialResponse(resolved.reason);
+    return NextResponse.json({ error }, { status });
+  }
+  const folder = resolved.kind === "file" ? resolved.path : "";
+
   const files = form.getAll("file").filter((f): f is File => f instanceof File);
   if (files.length === 0) {
     return NextResponse.json({ error: "No files attached." }, { status: 400 });

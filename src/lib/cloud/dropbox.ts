@@ -32,6 +32,25 @@ import {
 export const DROPBOX_APP_KEY =
   process.env.DROPBOX_APP_KEY || "ixviqj0e6ntkaxw";
 
+// Least-privilege OAuth scopes — exactly what the endpoints below call, and
+// nothing else. Sent explicitly on /authorize (src/app/api/cloud/connect) so
+// the grant is defined here, in review, rather than by whatever the Dropbox
+// app console is set to.
+//
+//   account_info.read      users/get_current_account (settings UI)
+//   files.metadata.read    files/list_folder(+/continue)
+//   files.content.read     files/download, files/get_preview, files/get_thumbnail_v2
+//   files.content.write    files/upload, files/create_folder_v2
+//
+// Notably absent: sharing.* (we never create share links) and any delete scope
+// (nothing in SupersDeck removes a file from the customer's drive).
+export const DROPBOX_SCOPES = [
+  "account_info.read",
+  "files.metadata.read",
+  "files.content.read",
+  "files.content.write",
+] as const;
+
 const API = "https://api.dropboxapi.com";
 const CONTENT = "https://content.dropboxapi.com";
 
@@ -54,7 +73,7 @@ async function freshAccessToken(conn: CloudConnectionRow): Promise<string> {
     throw new Error(`Dropbox token refresh failed (${res.status})`);
   }
   const tok = (await res.json()) as { access_token: string; expires_in: number };
-  await updateAccessToken(tok.access_token, tok.expires_in);
+  await updateAccessToken(conn.id, tok.access_token, tok.expires_in);
   return tok.access_token;
 }
 
@@ -148,24 +167,28 @@ export class DropboxProvider implements CloudProvider {
     return { bytes: await res.arrayBuffer(), contentType: "image/jpeg" };
   }
 
-  async streamUrl(path: string): Promise<string> {
-    const r = await rpc<{ link: string }>(this.token, "/files/get_temporary_link", { path });
-    return r.link;
-  }
+  // NOTE: get_temporary_link (streamUrl) was REMOVED on 2026-08-09. It handed
+  // the browser a ~4-hour bearer URL that authenticates on its own — copied out
+  // of devtools or history it kept working with no SupersDeck session, past
+  // sign-out, role changes and offboarding, and could not be revoked without
+  // rotating the whole Dropbox grant. /api/cloud/stream proxies bytes instead.
+  // Its only caller was that route; do not reintroduce it to save egress.
 
   /**
-   * Raw file bytes as a streamable Response (used to proxy PDFs same-origin).
-   * pdf.js can't fetch the temp link directly: the credentialed request that
-   * our auth requires is rejected by Dropbox's `Access-Control-Allow-Origin: *`,
-   * and the temp link's `Content-Disposition: attachment` forces downloads.
+   * Raw file bytes as a streamable Response — every byte the app serves from
+   * the drive goes through here, so the caller's session is checked on each
+   * request. `range` is forwarded verbatim so the browser keeps video seeking
+   * and pdf.js partial fetches (Dropbox honours Range on /files/download).
    */
-  async downloadStream(path: string): Promise<Response> {
+  async downloadStream(path: string, range?: string): Promise<Response> {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.token}`,
+      "Dropbox-API-Arg": JSON.stringify({ path }),
+    };
+    if (range) headers.Range = range;
     const res = await fetch(`${CONTENT}/2/files/download`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        "Dropbox-API-Arg": JSON.stringify({ path }),
-      },
+      headers,
     });
     if (!res.ok || !res.body) throw new Error(`download failed (${res.status})`);
     return res;

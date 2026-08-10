@@ -9,6 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config tests/unit/vitest.config.ts",
+    "check:buckets": "node ci/check-bucket-parity.mjs",
+    "verify:guards:access": "node ci/verify-guards.mjs ci/guards-access-control.json",
     "postinstall": "cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdf.worker.min.mjs"
   },
   "dependencies": {

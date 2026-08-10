@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { PHOTO_BUCKET } from "@/lib/buckets";
 
 // =============================================================================
 //  Photo helpers
@@ -13,10 +14,9 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 //  new uploads go to Storage.
 // =============================================================================
 
-// Live private bucket for work-order photos + attachments. (Was "wo-photos" in
-// code, but the actual Supabase bucket is "work-orders" — fixing the mismatch.)
-export const PHOTO_BUCKET = "work-orders";
-export { TASK_BUCKET } from "@/types/tasks";
+// Bucket names live in ONE place (src/lib/buckets.ts) — re-exported here so the
+// many server callers that already import from this module keep working.
+export { PHOTO_BUCKET, TASK_BUCKET } from "@/lib/buckets";
 
 export function isStoragePath(s: string): boolean {
   return !s.startsWith("data:");

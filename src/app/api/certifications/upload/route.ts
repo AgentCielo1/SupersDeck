@@ -5,6 +5,7 @@ import { getServerSupabase } from "@/lib/supabase";
 import { classifyCert } from "@/lib/classify-cert";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
 import { parseJson, reqStr, optStr } from "@/lib/validation";
+import { DOC_BUCKET } from "@/lib/buckets";
 
 const CertUploadSchema = z.object({
   path: reqStr(500),
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
   // Best-effort classification (images only — Claude vision).
   let cls: Awaited<ReturnType<typeof classifyCert>> | null = null;
   if (/^image\//.test(mime)) {
-    const dl = await supabase.storage.from("documents").download(path);
+    const dl = await supabase.storage.from(DOC_BUCKET).download(path);
     if (dl.data) {
       const buf = Buffer.from(await dl.data.arrayBuffer());
       cls = await classifyCert(buf.toString("base64"), mime, {

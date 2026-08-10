@@ -1,21 +1,30 @@
 import { NextResponse } from "next/server";
-import { getCurrentUserProfile } from "@/lib/supabase-server";
+import { requireRole, CLOUD_ACCESS } from "@/lib/authz";
 import { DropboxProvider } from "@/lib/cloud/dropbox";
+import { resolveCloudPath, denialResponse } from "@/lib/cloud/path-guard";
 
-// GET /api/cloud/preview?path= — PDF rendition of an Office doc (any staff).
+// GET /api/cloud/preview?path= — PDF rendition of an Office doc.
 // Dropbox converts docx/xlsx/pptx/rtf server-side (where the files already
 // live — no third party sees them); we render the PDF with pdf.js in-app.
+//
+// Role: admin/super/manager (CLOUD_ACCESS) — see /api/cloud/list for the reasoning.
+// Path is confined to CLOUD_ALLOWED_ROOTS; treat `path` as hostile input.
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
-  const me = await getCurrentUserProfile().catch(() => null);
-  if (!me) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  const auth = await requireRole(CLOUD_ACCESS);
+  if (auth.response) return auth.response;
+
+  const resolved = resolveCloudPath(new URL(request.url).searchParams.get("path"));
+  if (!resolved.ok) {
+    const { status, error } = denialResponse(resolved.reason);
+    return NextResponse.json({ error }, { status });
+  }
+  const path = resolved.kind === "file" ? resolved.path : "";
 
   const provider = await DropboxProvider.connect();
   if (!provider) return NextResponse.json({ error: "Not connected" }, { status: 503 });
 
-  const path = new URL(request.url).searchParams.get("path") ?? "";
-  if (!path) return NextResponse.json({ error: "path required" }, { status: 400 });
   try {
     // Real PDFs: stream the raw bytes same-origin (no CORS, no attachment
     // disposition, no size buffering) — see DropboxProvider.downloadStream.

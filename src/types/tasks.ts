@@ -4,9 +4,11 @@
 
 export type TaskFile = { path: string; name: string; type?: string };
 
-// Private Supabase Storage bucket for task attachments. Declared here (not in
-// the server-only storage.ts) so client components can import it safely.
-export const TASK_BUCKET = "task-files";
+// Private Supabase Storage bucket for task attachments. Defined in
+// src/lib/buckets.ts (the single source of truth for bucket names, checked
+// against the SQL by ci/check-bucket-parity.mjs) and re-exported here so the
+// existing client imports keep working.
+export { TASK_BUCKET } from "@/lib/buckets";
 
 export type TaskStatus =
   | "pending"
