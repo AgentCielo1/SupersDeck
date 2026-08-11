@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
-import { getServerSupabase } from "@/lib/supabase";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getServerSupabase } from "@/lib/supabase";
 import { pushToAdminsAndSupers } from "@/lib/push";
 import { translateToEnglish } from "@/lib/translate";
 import { getClientIp, isRateLimitedDurable } from "@/lib/ratelimit-durable";
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
       { status: 429 },
     );
   }
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },

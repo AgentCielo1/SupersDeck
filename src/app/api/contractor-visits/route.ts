@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import type { ComplianceStatus } from "@workorder/kit/contractor/contract";
 import {
   deriveCompanyStatus,
@@ -41,7 +41,7 @@ const SignInSchema = z.object({
 // =============================================================================
 
 export async function GET(request: Request) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) return NextResponse.json([]);
 
   const { searchParams } = new URL(request.url);
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await requireRole(WRITE_ASM);
   if (auth.response) return auth.response;
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },

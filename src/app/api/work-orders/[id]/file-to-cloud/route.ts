@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
 import { toNormalized } from "@/lib/wo-adapter";
 import { renderWorkOrderPdf } from "@/lib/wo-pdf";
@@ -69,7 +68,7 @@ export async function POST(
   filed.push(await provider.upload(`${folder}/${base}.pdf`, pdf));
 
   // 2. Photos (storage-backed ones; skip legacy inline data: URLs).
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   const photoPaths = (Array.isArray(wo.photos) ? wo.photos : []).filter(
     (p): p is string => typeof p === "string" && !p.startsWith("data:")
   );

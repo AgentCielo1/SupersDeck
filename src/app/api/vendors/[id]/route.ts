@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { requireRole, WRITE_ASM } from "@/lib/authz";
 import { parseJson, str, optStr } from "@/lib/validation";
 
@@ -48,7 +48,7 @@ export async function PATCH(
 ) {
   const auth = await requireRole(WRITE_ASM);
   if (auth.response) return auth.response;
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },
@@ -104,7 +104,7 @@ export async function DELETE(
 ) {
   const auth = await requireRole(WRITE_ASM);
   if (auth.response) return auth.response;
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },
