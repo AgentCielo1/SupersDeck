@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getServerSupabase } from "@/lib/supabase";
 import { requireRole, WRITE_ASM, ADMIN_ONLY } from "@/lib/authz";
 import { parseJson, str, optStr } from "@/lib/validation";
 
@@ -50,7 +51,10 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createSupabaseServerClient();
+  // SERVICE ROLE, deliberately: GET /api/buildings/* is public — the QR
+  // posters and /intake read building info with no session. PATCH and DELETE
+  // below stay user-scoped, which is why this file mixes the two.
+  const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },

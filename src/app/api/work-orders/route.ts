@@ -102,7 +102,13 @@ export async function POST(request: Request) {
       { status: 429 },
     );
   }
-  const supabase = createSupabaseServerClient();
+  // SERVICE ROLE, deliberately: POST /api/work-orders is in
+  // PUBLIC_API_BY_METHOD — a tenant submits a ticket from /intake with no
+  // session at all. Converting this to the user-scoped client made anonymous
+  // submissions run as `anon`, and RLS answered "Unknown building" (404) for a
+  // building that plainly exists. The anonymous caller is gated by a durable
+  // per-IP rate limit and the signed x-intake-token, not by RLS.
+  const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },
