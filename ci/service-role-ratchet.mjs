@@ -16,7 +16,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const BUDGET = Number(process.env.SERVICE_ROLE_BUDGET ?? 29);
+const BUDGET = Number(process.env.SERVICE_ROLE_BUDGET ?? 24);
 const ROOT = new URL("../src", import.meta.url).pathname;
 const CALL = /\bgetServerSupabase\s*\(\s*\)/g;
 
