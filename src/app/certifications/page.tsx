@@ -1,7 +1,7 @@
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { db } from "@/lib/db";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { complianceTemplateById } from "@/data/compliance-templates";
 import CertificationsClient, { type CertRow } from "./CertificationsClient";
 import { DOC_BUCKET } from "@/lib/buckets";
@@ -36,7 +36,7 @@ export default async function CertificationsPage() {
   const paths = certs.map((c) => c.photo_path).filter((p): p is string => !!p);
   const signed = new Map<string, string>();
   if (paths.length) {
-    const supabase = getServerSupabase();
+    const supabase = createSupabaseServerClient();
     if (supabase) {
       const { data } = await supabase.storage.from(DOC_BUCKET).createSignedUrls(paths, 60 * 60);
       for (const s of data ?? []) if (s.path && s.signedUrl) signed.set(s.path, s.signedUrl);
