@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
 import { parseJson } from "@/lib/validation";
 
@@ -58,7 +58,7 @@ export async function PATCH(
   // Safety: an admin can't demote themselves below admin (otherwise the
   // org could end up with zero admins).
   if (me.id === params.id && update.role && update.role !== "admin") {
-    const { count } = await getServerSupabase()!
+    const { count } = await createSupabaseServerClient()!
       .from("profiles")
       .select("id", { count: "exact", head: true })
       .eq("role", "admin");
@@ -73,7 +73,7 @@ export async function PATCH(
     }
   }
 
-  const supabase = getServerSupabase()!;
+  const supabase = createSupabaseServerClient()!;
   const { data, error } = await supabase
     .from("profiles")
     .update(update)
@@ -108,7 +108,7 @@ export async function DELETE(
   }
 
   // Deleting from auth.users cascades to public.profiles via the FK.
-  const supabase = getServerSupabase()!;
+  const supabase = createSupabaseServerClient()!;
   const { error } = await supabase.auth.admin.deleteUser(params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

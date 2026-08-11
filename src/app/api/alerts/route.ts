@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
 import { dispatchAlert, TIERS, type AlertTier } from "@/lib/alerts";
 
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Select at least one building" }, { status: 400 });
   }
 
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   }

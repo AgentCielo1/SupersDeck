@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
 import { parseJson, reqStr, optStr } from "@/lib/validation";
 
@@ -29,7 +29,7 @@ const CreateComplianceDocSchema = z.object({
 // =============================================================================
 
 export async function GET(request: Request) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) return NextResponse.json([]);
 
   const { searchParams } = new URL(request.url);
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
   }

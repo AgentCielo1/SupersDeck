@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { fetchHpdViolationsForBuildings } from "@/lib/hpd";
+import { lookupHpdViolationsForBuildings } from "@/lib/hpd";
 import { getServerSupabase } from "@/lib/supabase";
 
 // =============================================================================
@@ -37,16 +37,43 @@ export async function POST(request: NextRequest) {
 
   const supabase = getServerSupabase();
   const buildings = await db.buildings();
-  const data = await fetchHpdViolationsForBuildings(buildings, {
+  const data = await lookupHpdViolationsForBuildings(buildings, {
     openOnly: false, // persist everything; UI filters
     limit: 500,
   });
 
-  const summary: Record<string, { fetched: number; new: number }> = {};
+  // `fetched: 0` must mean "checked, and there were none" — never "we failed to
+  // check". A cron summary that conflates them silently reports an all-clear.
+  const summary: Record<
+    string,
+    | { status: "ok"; fetched: number; new: number }
+    | { status: "failed"; reason: string; detail: string }
+  > = {};
 
   for (const b of buildings) {
-    const rows = data[b.id] ?? [];
-    summary[b.id] = { fetched: rows.length, new: 0 };
+    const result = data[b.id];
+
+    if (!result || !result.ok) {
+      const failure = result?.failure ?? {
+        kind: "network_error" as const,
+        detail: "no result returned",
+      };
+      summary[b.id] = {
+        status: "failed",
+        reason: failure.kind,
+        detail: failure.detail,
+      };
+      console.error(
+        `[violations] lookup FAILED for ${b.id} (${failure.kind}): ${failure.detail}`
+      );
+      // Deliberately do NOT touch violations_sync — a failed lookup must not
+      // advance "last synced", or the UI would claim fresh data it never got.
+      continue;
+    }
+
+    const rows = result.violations;
+    const entry = { status: "ok" as const, fetched: rows.length, new: 0 };
+    summary[b.id] = entry;
 
     if (!supabase || rows.length === 0) continue;
 
@@ -59,7 +86,7 @@ export async function POST(request: NextRequest) {
       .in("id", ids);
     const existingIds = new Set((existing ?? []).map((r) => r.id));
     const newCount = ids.filter((id) => !existingIds.has(id)).length;
-    summary[b.id].new = newCount;
+    entry.new = newCount;
 
     const upserts = rows.map((r) => ({
       id: r.violationid,
@@ -85,6 +112,13 @@ export async function POST(request: NextRequest) {
       .upsert(upserts, { onConflict: "id" });
     if (upErr) {
       console.error(`[violations] upsert failed for ${b.id}:`, upErr.message);
+      // We fetched fine but did not persist — report it as a failure rather
+      // than leaving an "ok" row that implies the data landed.
+      summary[b.id] = {
+        status: "failed",
+        reason: "persist_error",
+        detail: upErr.message,
+      };
       continue;
     }
 
@@ -101,11 +135,23 @@ export async function POST(request: NextRequest) {
       );
   }
 
-  return NextResponse.json({
-    refreshed_at: new Date().toISOString(),
-    buildings: buildings.length,
-    summary,
-  });
+  const failedCount = Object.values(summary).filter(
+    (s) => s.status === "failed"
+  ).length;
+
+  return NextResponse.json(
+    {
+      refreshed_at: new Date().toISOString(),
+      buildings: buildings.length,
+      checked: buildings.length - failedCount,
+      failed: failedCount,
+      complete: failedCount === 0,
+      summary,
+    },
+    // 207 Multi-Status when some buildings couldn't be checked, so cron
+    // monitoring surfaces a partial sync instead of reading a silent 200.
+    { status: failedCount > 0 ? 207 : 200 }
+  );
 }
 
 export async function GET(request: NextRequest) {

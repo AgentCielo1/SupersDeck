@@ -1,0 +1,54 @@
+{
+  "testCommand": "npm test --silent",
+  "guards": [
+    {
+      "name": "HPD: a failed lookup must not render as 'clean'",
+      "file": "src/lib/hpd.ts",
+      "find": "    return {\n      ok: false,\n      failure: { kind: \"unparsable_address\", detail: b.address },\n    };",
+      "replace": "    return { ok: true, violations: [] };",
+      "expect": "unparsable_address"
+    },
+    {
+      "name": "HPD: an HTTP error must not render as 'clean'",
+      "file": "src/lib/hpd.ts",
+      "find": "      return {\n        ok: false,\n        failure: { kind: \"http_error\", detail: `HTTP ${res.status}` },\n      };",
+      "replace": "      return { ok: true, violations: [] };",
+      "expect": "http_error"
+    },
+    {
+      "name": "HPD: a thrown network error must not render as 'clean'",
+      "file": "src/lib/hpd.ts",
+      "find": "    return { ok: false, failure: { kind: \"network_error\", detail } };",
+      "replace": "    return { ok: true, violations: [] };",
+      "expect": "network_error"
+    },
+    {
+      "name": "HPD: cure deadline must use the class normalizer",
+      "file": "src/lib/hpd.ts",
+      "find": "  const cls = violationClass(v);",
+      "replace": "  const cls = v.violationclass;",
+      "expect": "cureDeadline"
+    },
+    {
+      "name": "db: a database error must not render SAMPLE demo data",
+      "file": "src/lib/db.ts",
+      "find": "  if (error) dbFail(\"fetchBuildings\", error);",
+      "replace": "  if (error) return SAMPLE_BUILDINGS;",
+      "expect": "A database error must surface"
+    },
+    {
+      "name": "db: the units listing stays bounded",
+      "file": "src/lib/db.ts",
+      "find": "await s.from(\"units\").select(\"*\").order(\"label\").limit(DEFAULT_LIMIT)",
+      "replace": "await s.from(\"units\").select(\"*\").order(\"label\")",
+      "expect": "caps the units listing"
+    },
+    {
+      "name": "db: the work-orders listing stays bounded",
+      "file": "src/lib/db.ts",
+      "find": "    .order(\"reported_at\", { ascending: false })\n    .limit(DEFAULT_LIMIT);",
+      "replace": "    .order(\"reported_at\", { ascending: false });",
+      "expect": "caps the work-orders listing"
+    }
+  ]
+}

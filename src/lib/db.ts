@@ -67,15 +67,45 @@ const STATIC = {
   vendorDiscoverySources: VENDOR_DISCOVERY_SOURCES,
 };
 
+
+// ---------------------------------------------------------------------------
+//  Query limits + honest error handling
+// ---------------------------------------------------------------------------
+//  TWO defects found on 2026-08-09 by seeding 100,000 units (SCALE-FINDINGS.md):
+//
+//  F2  Unbounded `select *` pulled 12 MB of work orders and 7 MB of units into
+//      the Node process on EVERY page load. At Forest Hills' 432 units the same
+//      code moves ~60 KB, which is why it was never noticed. DEFAULT_LIMIT caps it.
+//
+//  F4  On a database ERROR these functions returned SAMPLE_* demo rows — fabricated
+//      buildings, units, work orders, vendors, certifications and heat logs
+//      rendered as if they were real records. That is the same false-assurance
+//      class as the HPD "couldn't check" bug: silent, confident, wrong.
+//      Returning demo data when Supabase IS configured is never correct; the app
+//      has error.tsx / global-error.tsx to render an honest failure instead.
+//
+//  The `!s` (Supabase unconfigured) path still returns SAMPLE_* — that is real
+//  demo mode, and it is not a lie.
+// ---------------------------------------------------------------------------
+
+/** Cap on unbounded list reads. Pages that need more must paginate explicitly. */
+export const DEFAULT_LIMIT = 500;
+
+/** A configured database that errors must surface, never silently show demo data. */
+function dbFail(op: string, error: { message: string }): never {
+  console.error(`[db] ${op}:`, error.message);
+  throw new Error(
+    `Could not load ${op} from the database (${error.message}). ` +
+      `Showing no data rather than sample data — refresh, or check the connection.`,
+  );
+}
+
 // ---------- Read methods ----------
 async function fetchBuildings(): Promise<Building[]> {
   const s = getSupabase();
   if (!s) return SAMPLE_BUILDINGS;
   const { data, error } = await s.from("buildings").select("*").order("name");
-  if (error) {
-    console.error("[db] fetchBuildings:", error.message);
-    return SAMPLE_BUILDINGS;
-  }
+  if (error) dbFail("fetchBuildings", error);
   return (data ?? []) as Building[];
 }
 
@@ -94,11 +124,8 @@ async function fetchBuilding(id: string): Promise<Building | undefined> {
 async function fetchUnits(): Promise<Unit[]> {
   const s = getSupabase();
   if (!s) return SAMPLE_UNITS;
-  const { data, error } = await s.from("units").select("*").order("label");
-  if (error) {
-    console.error("[db] fetchUnits:", error.message);
-    return SAMPLE_UNITS;
-  }
+  const { data, error } = await s.from("units").select("*").order("label").limit(DEFAULT_LIMIT);
+  if (error) dbFail("fetchUnits", error);
   return (data ?? []) as Unit[];
 }
 
@@ -121,11 +148,9 @@ async function fetchWorkOrders(): Promise<WorkOrder[]> {
   const { data, error } = await s
     .from("work_orders")
     .select("*")
-    .order("reported_at", { ascending: false });
-  if (error) {
-    console.error("[db] fetchWorkOrders:", error.message);
-    return SAMPLE_WORK_ORDERS;
-  }
+    .order("reported_at", { ascending: false })
+    .limit(DEFAULT_LIMIT);
+  if (error) dbFail("fetchWorkOrders", error);
   return (data ?? []) as WorkOrder[];
 }
 
@@ -166,7 +191,7 @@ async function fetchMyVendors(): Promise<Vendor[]> {
     .select("*")
     .eq("in_my_vendors", true)
     .order("name");
-  if (error) return SAMPLE_MY_VENDORS;
+  if (error) dbFail("query", error);
   return (data ?? []) as Vendor[];
 }
 
@@ -177,7 +202,7 @@ async function fetchCertifications(): Promise<Certification[]> {
     .from("certifications")
     .select("*")
     .order("expires_at");
-  if (error) return SAMPLE_CERTIFICATIONS;
+  if (error) dbFail("query", error);
   return (data ?? []) as Certification[];
 }
 
@@ -189,7 +214,7 @@ async function fetchHeatLogs(): Promise<HeatLog[]> {
     .select("*")
     .order("recorded_at", { ascending: false })
     .limit(500);
-  if (error) return SAMPLE_HEAT_LOGS;
+  if (error) dbFail("query", error);
   return (data ?? []) as HeatLog[];
 }
 

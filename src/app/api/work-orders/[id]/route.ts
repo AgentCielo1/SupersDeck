@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
-import { getServerSupabase } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
 import { resolvePhotoUrls, PHOTO_BUCKET } from "@/lib/storage";
 import { archiveCompletedWorkOrder } from "@/lib/wo-archive";
@@ -61,7 +61,7 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },
@@ -84,7 +84,7 @@ export async function PATCH(
 ) {
   const auth = await requireRole(WRITE_ASMP);
   if (auth.response) return auth.response;
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },
@@ -322,7 +322,7 @@ export async function DELETE(
 ) {
   const auth = await requireRole(ADMIN_ONLY);
   if (auth.response) return auth.response;
-  const supabase = getServerSupabase();
+  const supabase = createSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
   }

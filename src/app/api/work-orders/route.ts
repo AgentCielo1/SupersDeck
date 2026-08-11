@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
-import { getServerSupabase } from "@/lib/supabase";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getServerSupabase } from "@/lib/supabase";
 import { pushToAdminsAndSupers } from "@/lib/push";
 import { translateToEnglish } from "@/lib/translate";
 import { getClientIp, isRateLimitedDurable } from "@/lib/ratelimit-durable";
@@ -102,6 +102,12 @@ export async function POST(request: Request) {
       { status: 429 },
     );
   }
+  // SERVICE ROLE, deliberately: POST /api/work-orders is in
+  // PUBLIC_API_BY_METHOD — a tenant submits a ticket from /intake with no
+  // session at all. Converting this to the user-scoped client made anonymous
+  // submissions run as `anon`, and RLS answered "Unknown building" (404) for a
+  // building that plainly exists. The anonymous caller is gated by a durable
+  // per-IP rate limit and the signed x-intake-token, not by RLS.
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(
