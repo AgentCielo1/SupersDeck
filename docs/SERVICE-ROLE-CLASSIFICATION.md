@@ -29,7 +29,7 @@ PUBLIC_API_BY_METHOD  POST /api/work-orders        (tenant intake, anonymous)
 /api/cron/*           always public; authenticated by CRON_SECRET
 ```
 
-## KEEP — no user exists at this point (30 sites)
+## KEEP — no user exists at this point (28 sites)
 
 | sites | path | why |
 |---|---|---|
@@ -44,7 +44,7 @@ PUBLIC_API_BY_METHOD  POST /api/work-orders        (tenant intake, anonymous)
 | 2 | `lib/alerts.ts` | alert fan-out across an org's staff |
 | 4 | `lib/cloud/store.ts` | cloud-drive storage layer, called from background paths |
 | 1 | `lib/wo-archive.ts` | archive sweep, no acting user |
-| 7 | `app/api/profiles/*`, `app/api/profile/consent` | **see below** |
+| 5 | `app/api/profiles/*`, `app/api/profile/consent` | **see the note below** — a product question, not a mechanical one |
 
 ## CONVERTED IN BATCH 2 — behind scenario coverage (11 sites)
 
@@ -68,20 +68,7 @@ read policies: `BLINDED: HTTP 200 but "Candiany Rodriguez" missing`.
 |---|---|---|
 | 1 | `POST /api/billing/create-checkout` | calls Stripe; there is no way to exercise it in the simulator, and converting a payment path with no coverage is what this document exists to prevent |
 
-These sit behind middleware's login gate, so a session exists. They were left
-out of the first batch only because none call `requireRole()`, which was the
-signal used to pick that batch. They need per-route verification first, since
-the route scenario currently covers two GET endpoints.
-
-| sites | path | note |
-|---|---|---|
-| 3 | `/api/alerts`, `/api/alerts/[id]/acknowledge`, `/api/alerts/[id]/resolve` | a super acting on an alert |
-| 2 | `/api/compliance-documents` | staff CRUD |
-| 1 | `/api/billing/create-checkout` | signed-in admin |
-| 2 | `/api/push/subscribe` | the user's OWN subscription |
-| 4 | `app/certifications/page.tsx`, `app/contractors/{page,logbook/page,qr/page}.tsx` | server components on private paths; they can read cookies |
-
-`/api/profiles/*` (4 sites) is deliberately ambiguous and sits in KEEP for now:
+`/api/profiles/*` and `/api/profile/consent` (5 sites) are deliberately ambiguous and sits in KEEP for now:
 an admin editing staff needs to see rows RLS may hide from them, so converting
 it requires deciding what a manager may see, which is a product question.
 
