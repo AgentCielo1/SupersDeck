@@ -4,7 +4,7 @@
 bypasses Row-Level Security entirely. `createSupabaseServerClient()` uses the
 anon key plus the request's auth cookie, so RLS sees the caller.
 
-66 sites used the service role. 28 were converted. **40 remain**, and every one
+66 sites used the service role. 37 were converted across two batches. **29 remain**, and every one
 is classified below with the evidence for keeping it. The ratchet
 (`ci/service-role-ratchet.mjs`) pins that number; it may only fall.
 
@@ -46,7 +46,27 @@ PUBLIC_API_BY_METHOD  POST /api/work-orders        (tenant intake, anonymous)
 | 1 | `lib/wo-archive.ts` | archive sweep, no acting user |
 | 7 | `app/api/profiles/*`, `app/api/profile/consent` | **see below** |
 
-## CONVERT NEXT — a user is present (10 sites)
+## CONVERTED IN BATCH 2 — behind scenario coverage (11 sites)
+
+Each of these has a step in `sim/apps/supersdeck-routes.mjs` asserting it still
+serves real rows, written and passing before the change.
+
+| sites | path | coverage |
+|---|---|---|
+| 2 | `/api/compliance-documents` | GET asserted against owner ground truth |
+| 3 | `/api/alerts`, `+/acknowledge`, `+/resolve` | behind the login gate |
+| 2 | `/api/push/subscribe` | the user's own subscription |
+| 4 | `contractors`, `contractors/logbook`, `contractors/qr`, `certifications` | each asserts a known row appears in the HTML |
+
+A blinded server component still returns 200 and renders an empty list, so the
+page checks assert content, not status. Falsified by dropping the certifications
+read policies: `BLINDED: HTTP 200 but "Candiany Rodriguez" missing`.
+
+## STILL OPEN — deliberately (1 site)
+
+| sites | path | why |
+|---|---|---|
+| 1 | `POST /api/billing/create-checkout` | calls Stripe; there is no way to exercise it in the simulator, and converting a payment path with no coverage is what this document exists to prevent |
 
 These sit behind middleware's login gate, so a session exists. They were left
 out of the first batch only because none call `requireRole()`, which was the
