@@ -193,15 +193,36 @@ create table if not exists certifications (
 );
 create index if not exists idx_certs_expiry on certifications (expires_at);
 
--- ----------------------------- Row Level Security stubs -------------------
--- IMPORTANT: Supabase enables RLS by default on tables created via its UI.
--- Tables created here via raw SQL also inherit it on some Supabase versions.
--- After running this schema on a DEV project, ALSO run
--- `supabase/dev/disable-rls-for-dev.sql` (dev-only; it has a guard)
--- to allow the app's anon-keyed reads. When auth lands in phase 4, replace
--- the disable with real per-role policies.
--- alter table buildings enable row level security;
--- alter table units enable row level security;
--- alter table compliance_items enable row level security;
--- alter table work_orders enable row level security;
--- ... etc.
+-- ----------------------------- Row Level Security --------------------------
+-- ⚠️ This file alone does NOT make a deployment tenant-safe.
+--
+-- Tables created via raw SQL do NOT get RLS automatically. Historically this
+-- block was commented out, which meant a FRESH deployment came up with every
+-- table world-readable to any authenticated user — the reason a second
+-- customer could not be onboarded safely.
+--
+-- RLS is enabled here as a fail-closed default: with RLS on and no policy, a
+-- table denies everything. The policies that make it usable are added by the
+-- migrations, which MUST be run in this order:
+--
+--   1. schema.sql                       (this file)
+--   2. auth-setup.sql                   profiles + auth trigger
+--   3. role-policies.sql                per-ROLE write rules
+--   4. migration-alerts-billing.sql     orgs + get_my_org()
+--   5. migration-tenant-isolation.sql   per-ORG isolation  ← REQUIRED
+--
+-- Skipping step 5 leaves the deployment tenant-blind. See that file's header.
+--
+-- For a single-tenant DEV project you may run supabase/dev/disable-rls-for-dev.sql
+-- (dev-only; it has a guard). NEVER run it against production.
+alter table buildings           enable row level security;
+alter table units               enable row level security;
+alter table compliance_templates enable row level security;
+alter table compliance_items    enable row level security;
+alter table vendor_categories   enable row level security;
+alter table vendor_discovery_sources enable row level security;
+alter table vendors             enable row level security;
+alter table work_orders         enable row level security;
+alter table work_order_updates  enable row level security;
+alter table heat_logs           enable row level security;
+alter table certifications      enable row level security;
