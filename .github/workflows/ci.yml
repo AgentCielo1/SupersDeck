@@ -30,6 +30,26 @@ jobs:
       - name: Unit tests
         run: npm run test
 
+      # The bucket named in SQL must equal the bucket named in code. This class
+      # of defect is invisible from inside the app — both halves work, just on
+      # different objects — so only a check that reads both files catches it.
+      # supabase/storage-setup.sql hardened `wo-photos` for months while the app
+      # used `work-orders`. Found 2026-08-09.
+      - name: Storage bucket parity (SQL vs code)
+        run: npm run check:buckets
+
+      # ⭐ A green suite is NOT evidence. This mutates each critical invariant and
+      # fails the build if the test protecting it stays green. Three tests in this
+      # suite were found decorative on 2026-08-09 — see master-build/ci/verify-guards.mjs
+      - name: Verify guards can fail
+        run: node ci/verify-guards.mjs
+
+      # Same treatment for the access-control fixes (audit of 2026-08-09):
+      # path confinement, the fail-open profile, the dormant intake secret,
+      # the tenant-PII tier, HMAC replay, and the offline-cache purge.
+      - name: Verify access-control guards can fail
+        run: npm run verify:guards:access
+
       - name: Build
         run: npm run build
         env:
@@ -39,3 +59,51 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: placeholder
           CRON_SECRET: placeholder
           NEXT_PUBLIC_SENTRY_DSN: ""
+          # CI has no real secrets, so the production boot check in
+          # src/lib/production-env.ts must stand down here. Consequence, stated
+          # plainly: A GREEN CI RUN IS NOT EVIDENCE THAT INTAKE_TOKEN_SECRET IS
+          # SET IN VERCEL. Only the real deploy can tell, and it will fail if not.
+          SKIP_ENV_VALIDATION: "1"
+
+  # ---------------------------------------------------------------------------
+  #  Scale gate — the unit suite says nothing about behaviour at client scale.
+  #  Seeds 100k units and fails on the plans that caused F1/F2 (external merge
+  #  sort spills, unbounded result sets). See master-build/SCALE-FINDINGS.md.
+  # ---------------------------------------------------------------------------
+  scale:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PERF_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Prepare schema
+        run: |
+          psql "$PERF_DATABASE_URL" -q -c "create extension if not exists pgcrypto; create schema if not exists auth;"
+          psql "$PERF_DATABASE_URL" -q -c "create table if not exists auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb default '{}'::jsonb);"
+          psql "$PERF_DATABASE_URL" -q -c "create or replace function auth.uid() returns uuid language sql stable as \$\$ select null::uuid \$\$;"
+          psql "$PERF_DATABASE_URL" -q -f supabase/schema.sql
+          psql "$PERF_DATABASE_URL" -q -f supabase/migration-alerts-billing.sql || true
+          psql "$PERF_DATABASE_URL" -f supabase/migration-scale-indexes.sql || true
+
+      - name: Seed at client scale (100k units, 5 orgs)
+        run: node scripts/seed-scale.mjs --url "$PERF_DATABASE_URL" --units 100000 --orgs 5
+
+      - name: Perf gate
+        run: node ci/perf-gate.mjs --url "$PERF_DATABASE_URL"
