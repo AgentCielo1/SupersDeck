@@ -14,3 +14,16 @@ coverage
 .vercel
 .env*
 tsconfig.tsbuildinfo
+.env.development.local
+
+# Local editor/agent + Supabase CLI state — not part of the app
+.claude/
+supabase/config.toml
+supabase/config.toml.bak
+
+# Credential-bearing SQL must NEVER be committed (cleartext passwords).
+# Set user passwords from the Supabase dashboard or a gitignored local file.
+# History still contains the removed set-user-password.sql until scrubbed — see englab-04.
+supabase/set-user-password.sql
+supabase/fix-adam-login.sql
+supabase/*password*.sql
