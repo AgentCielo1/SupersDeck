@@ -14,3 +14,11 @@ coverage
 .vercel
 .env*
 tsconfig.tsbuildinfo
+
+# Credential-bearing SQL must NEVER be committed (cleartext passwords).
+# Set user passwords from the Supabase dashboard or a gitignored local file.
+# History was scrubbed of supabase/set-user-password.sql on 2026-08-13
+# (git-filter-repo + force-push, all 18 published branches) — see englab-04.
+supabase/set-user-password.sql
+supabase/fix-adam-login.sql
+supabase/*password*.sql
