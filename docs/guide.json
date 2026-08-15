@@ -1,0 +1,186 @@
+{
+  "_comment": [
+    "Task recipes — the written half of the user guide. The other half",
+    "(docs/REFERENCE.md) is generated from the code and never edited by hand.",
+    "",
+    "Every step names a real route and a string that must actually render on it.",
+    "scripts/check-guide-drift.mjs verifies both: routes against the generated",
+    "reference (cheap, runs anywhere) and the on-screen text against the running",
+    "app (inside the local-stack harness). A renamed button therefore breaks the",
+    "build instead of quietly making the guide lie to a new user.",
+    "",
+    "Written as TASKS, not as features. Nobody opens a manual wanting to read",
+    "about the Work Orders Module; they want to file one and get back to work."
+  ],
+  "app": "SupersDeck",
+  "audience": "Building superintendents, porters and property managers. Assumes no software background — assumes you know the building.",
+  "tasks": [
+    {
+      "id": "sign-in",
+      "title": "Sign in for the first time",
+      "who": [
+        "admin",
+        "super",
+        "manager",
+        "porter"
+      ],
+      "why": "Everything else needs you signed in. Your account is created by whoever runs your company's SupersDeck — you cannot sign yourself up, which is deliberate: it keeps your buildings' data closed to everyone outside your organisation.",
+      "steps": [
+        {
+          "do": "Open the app. You land on the sign-in screen.",
+          "route": "/login",
+          "expect": "Sign in",
+          "as": "signed-out"
+        },
+        {
+          "do": "Enter the email address your manager used to invite you, and your password.",
+          "route": "/login",
+          "expect": "Password",
+          "as": "signed-out"
+        },
+        {
+          "do": "You arrive at the dashboard, which greets you by time of day and shows what needs attention.",
+          "route": "/",
+          "expect": "Good morning"
+        }
+      ]
+    },
+    {
+      "id": "file-work-order",
+      "title": "File a work order",
+      "who": [
+        "admin",
+        "super",
+        "manager",
+        "porter"
+      ],
+      "why": "The core of the day. A resident calls about no heat, a light is out, a door will not latch — this is how it gets recorded, assigned and closed, with a record you can show later.",
+      "steps": [
+        {
+          "do": "From the dashboard, open the pending list to see everything currently outstanding.",
+          "route": "/backlog",
+          "expect": "Work Orders: Pending"
+        },
+        {
+          "do": "Create a new work order. Give it the building, a short title describing the problem, and a priority.",
+          "route": "/backlog",
+          "expect": "Work Orders"
+        },
+        {
+          "do": "Back on the dashboard the new ticket appears in the day's list.",
+          "route": "/",
+          "expect": "Good morning"
+        }
+      ]
+    },
+    {
+      "id": "log-heat",
+      "title": "Log a heat and hot-water reading",
+      "who": [
+        "admin",
+        "super",
+        "manager",
+        "porter"
+      ],
+      "why": "During heat season New York City requires indoor and outdoor readings. Logging them here builds the record that answers an HPD complaint before it becomes a violation.",
+      "steps": [
+        {
+          "do": "Open the heat log entry form.",
+          "route": "/heat-log/new",
+          "expect": "Log a heat & hot-water reading"
+        },
+        {
+          "do": "Pick the building, then enter the indoor and outdoor temperatures you measured.",
+          "route": "/heat-log/new",
+          "expect": "heat"
+        },
+        {
+          "do": "Check the compliance view to see the readings against what the city requires.",
+          "route": "/heat-log/compliance",
+          "expect": "heat"
+        }
+      ]
+    },
+    {
+      "id": "add-building",
+      "title": "Add a building",
+      "who": [
+        "admin",
+        "super",
+        "manager"
+      ],
+      "why": "Done once per property, usually at setup. Everything else — work orders, heat logs, units, tenants — hangs off a building, so this comes first.",
+      "steps": [
+        {
+          "do": "Open the buildings list to see what is already set up.",
+          "route": "/buildings",
+          "expect": "Building"
+        },
+        {
+          "do": "Add a new building with its address, borough, and the number of units and floors.",
+          "route": "/buildings/new",
+          "expect": "Add a building"
+        }
+      ]
+    },
+    {
+      "id": "invite-teammate",
+      "title": "Invite someone to your team",
+      "who": [
+        "admin"
+      ],
+      "why": "New porter, new super, a manager who needs visibility. Only an admin can do this, and the role you choose decides what they can reach — see the permission groups in REFERENCE.md.",
+      "steps": [
+        {
+          "do": "Open your team roster. You see everyone in your organisation.",
+          "route": "/people",
+          "expect": "People"
+        },
+        {
+          "do": "Invite the new person by email and choose their role: porter, super, manager or admin.",
+          "route": "/people/invite",
+          "expect": "Invite a user"
+        }
+      ]
+    },
+    {
+      "id": "contractor-visit",
+      "title": "Record a contractor's visit",
+      "who": [
+        "admin",
+        "super",
+        "manager"
+      ],
+      "why": "Who was in the building, when, and for what. This is the log you reach for after an incident, and it is what an insurer or a board asks to see.",
+      "steps": [
+        {
+          "do": "Open the on-site logbook to see recent visits.",
+          "route": "/contractors/logbook",
+          "expect": "On-site logbook"
+        },
+        {
+          "do": "Contractors can also sign themselves in by scanning the QR poster at the door — print one per building.",
+          "route": "/contractors/qr",
+          "expect": "QR"
+        }
+      ]
+    },
+    {
+      "id": "check-compliance",
+      "title": "See where you stand on compliance",
+      "who": [
+        "admin",
+        "super",
+        "manager"
+      ],
+      "why": "The view a manager or board member asks about. What is open, what is due, and what has already been handled.",
+      "steps": [
+        {
+          "do": "Open the compliance overview.",
+          "route": "/compliance",
+          "expect": "Compliance"
+        }
+      ]
+    }
+  ]
+}
