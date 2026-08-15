@@ -1,16 +1,15 @@
-<!-- GENERATED from docs/guide.json by scripts/render-guide.mjs — edit the JSON, not this file -->
+<!-- GENERATED from docs/guide.json by sim/guide/guide.mjs — edit the JSON, not this file -->
 
 # SupersDeck — how to use it
 
 Building superintendents, porters and property managers. Assumes no software background — assumes you know the building.
 
 Each section below is a task, not a feature. Find the thing you are trying to
-do and follow the steps. You do not need to read this in order, and you do not
-need to read all of it.
+do and follow the steps. You do not need to read this in order.
 
-Every step in this guide is checked automatically against the running app, so
-if a screen here does not match what you see, that is a bug worth reporting —
-not something you are doing wrong.
+Every step here is checked automatically against the running app, so if a
+screen does not match what you see, that is a bug worth reporting — not
+something you are doing wrong.
 
 ## What you can do
 
@@ -135,7 +134,6 @@ The view a manager or board member asks about. What is open, what is due, and wh
 
 ---
 
-**Permissions.** What you can reach depends on your role. If a screen in this
-guide is not there for you, your role does not include it — ask an Admin. The
-full breakdown of who can do what is in [REFERENCE.md](REFERENCE.md), which is
-generated from the app's own code.
+**Permissions.** What you can reach depends on your role. If a screen here
+is not there for you, your role does not include it — ask an Admin.
+[REFERENCE.md](REFERENCE.md) has the full breakdown, generated from the code.
