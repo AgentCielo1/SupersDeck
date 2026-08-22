@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   angleAt, normalizePose, angleFeatures, visibilityGate,
   dtw, dtwScore, channelDeviation, detectTempo, tempoVerdict,
-  stillness, fromMediaPipe, CORE_POINTS, ANGLE_CHANNELS,
+  stillness, fromMediaPipe, worstSegments, CORE_POINTS, ANGLE_CHANNELS,
 } from "../js/engine/pose.js";
 
 // A synthetic upright pose in image space ([0,1], y down), parameterized so
@@ -117,6 +117,28 @@ test("stillness: measures a hold and a live active run", () => {
   const r = stillness(poses, fps);
   assert.ok(r.longest > 3.2, `longest=${r.longest}`);
   assert.ok(r.activeRun > 3.2, "still frozen at the end");
+});
+
+test("worstSegments flags the window where the rep actually breaks", () => {
+  const fps = 30;
+  // 6s clip that matches the reference except seconds 3-4, where knees go wrong
+  const good = (u) => ({ kneeBend: Math.PI - 0.4 * Math.sin(u * Math.PI * 6) });
+  const A = [], B = [];
+  for (let i = 0; i < fps * 6; i++) {
+    const u = i / (fps * 6);
+    B.push(angleFeatures(normalizePose(makePose(good(u)))));
+    const broken = i >= fps * 3 && i < fps * 4;
+    A.push(angleFeatures(normalizePose(makePose(broken ? { kneeBend: Math.PI / 2 } : good(u)))));
+  }
+  const segs = worstSegments(A, B, fps, { windowSec: 1, count: 2 });
+  assert.ok(segs.length >= 1);
+  const worst = [...segs].sort((a, b) => b.deg - a.deg)[0];
+  assert.ok(worst.startSec >= 2.4 && worst.startSec <= 3.6, `flagged ${worst.startSec}s`);
+  assert.ok(worst.deg > 10);
+});
+
+test("worstSegments returns [] on clips too short to window", () => {
+  assert.deepEqual(worstSegments([[1], [1]], [[1], [1]], 30), []);
 });
 
 test("fromMediaPipe maps the 33-landmark layout", () => {

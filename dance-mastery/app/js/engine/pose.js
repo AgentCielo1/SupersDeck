@@ -134,6 +134,38 @@ export function channelDeviation(A, B) {
   }));
 }
 
+// Worst-deviation time windows (Tier-2 review flags): slide a window over the
+// user sequence, compare against the time-proportional slice of the reference,
+// return the top non-overlapping segments by mean angular deviation.
+export function worstSegments(A, B, fps, { windowSec = 1, count = 2 } = {}) {
+  const w = Math.max(4, Math.round(windowSec * fps));
+  if (A.length < w * 2) return [];
+  const scores = [];
+  for (let s = 0; s + w <= A.length; s += Math.max(1, Math.round(w / 4))) {
+    const bs = Math.floor((s / A.length) * B.length);
+    const bw = Math.max(4, Math.floor((w / A.length) * B.length));
+    let sum = 0, cnt = 0;
+    for (let i = 0; i < w; i++) {
+      const a = A[s + i];
+      const b = B[Math.min(B.length - 1, bs + Math.floor((i / w) * bw))];
+      for (let k = 0; k < a.length; k++) {
+        if (Number.isFinite(a[k]) && Number.isFinite(b[k])) { sum += Math.abs(a[k] - b[k]); cnt++; }
+      }
+    }
+    if (cnt) scores.push({ start: s, deg: ((sum / cnt) * 180) / Math.PI });
+  }
+  scores.sort((a, b) => b.deg - a.deg);
+  const picked = [];
+  for (const c of scores) {
+    if (picked.some((p) => Math.abs(p.start - c.start) < w)) continue;
+    picked.push(c);
+    if (picked.length >= count) break;
+  }
+  return picked
+    .sort((a, b) => a.start - b.start)
+    .map((p) => ({ startSec: p.start / fps, endSec: (p.start + w) / fps, deg: Math.round(p.deg) }));
+}
+
 /* ---------------- tempo detection (groove/toprock) ---------------- */
 // series: vertical position of a stable point (mid-hip y) per frame.
 // Returns { bpm, confidence } via autocorrelation over plausible beat lags.

@@ -99,7 +99,21 @@ js/data/pose-refs.js
 vendor/      NOT committed — run `node scripts/fetch-models.mjs` once to
              download the MediaPipe runtime + pose_landmarker_lite (~24MB)
              for live-camera mode. Demo mode needs nothing.
+review.html + js/review.js  (Phase B2 · Tier 2)
+             Async clip review: drop in a report.json — verdict card,
+             deviation-vs-reference timeline (click to scrub, hover for
+             values, warning bands on flagged seconds), and a synced replay
+             of your skeleton beside the 3D reference. Sample reports in
+             reports/sample-*.json (try review.html?src=reports/sample-uprock-vs-six.report.json).
 ```
+
+Tier-2 pipeline (../tools/): `analyze.sh <video> <moveId>` runs
+`analyze-clip.py` (MediaPipe heavy model, model_complexity=2, offline — no
+real-time constraint) then `analyze-report.mjs`, which scores with the SAME
+js engine Tier-1 uses (one source of truth). `gen-test-landmarks.mjs` streams
+a bundled capture clip through the pipeline camera-free — golden test:
+uprock vs its own reference scores 100/clean; vs the 6-step reference 25/rough;
+an empty video reports "insufficient" instead of a fake score.
 
 Factory tools (../tools/): `bvh2json.mjs` (convert), `cleanlib.mjs` +
 `cleanup.mjs` (Station 4: smoothing, contact locking, floor clamp, seamless

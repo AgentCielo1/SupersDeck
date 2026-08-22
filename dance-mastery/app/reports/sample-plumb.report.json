@@ -1,0 +1,1 @@
+{"version":1,"moveId":"toprock.two_step","moveName":"Two-step / cross step","source":"plumb-test.mp4","fps":30,"model":"mediapipe_pose_heavy(mc=2)","gate":{"total":60,"clean":0,"reasons":{"no_pose":60}},"verdict":"insufficient","note":"Fewer than one second of clean, whole-body frames. Fix framing/light and re-record — no score is more honest than a fake one."}
