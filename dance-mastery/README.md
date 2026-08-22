@@ -26,6 +26,8 @@ retention data), and the technology/legal landscape for interactive 3D instructi
 | [06-PLATFORM-ARCHITECTURE.md](06-PLATFORM-ARCHITECTURE.md) | Product & tech: 3D animated instructors, honesty-tiered camera feedback, skill-graph engine, legal posture |
 | [07-ROADMAP.md](07-ROADMAP.md) | Track A: start training tomorrow (zero code). Track B: build phases B0–B5 |
 | [08-MOTION-FACTORY.md](08-MOTION-FACTORY.md) | The ~$0 content pipeline: phone-rig capture, open-source reconstruction, scripted cleanup, three production lanes |
+| [09-CAPTURE-DAY-PLAYBOOK.md](09-CAPTURE-DAY-PLAYBOOK.md) | The runnable weekend protocol: rig geometry, calibration, take ritual, shot sheet, first reconstruction |
+| [tools/bvh2json.mjs](tools/bvh2json.mjs) | Motion Factory Station-4 tool: BVH → compact viewer data (used for the CMU studio clips in the library) |
 | [data/breaking-skill-tree.json](data/breaking-skill-tree.json) | Machine-readable seed of the breaking curriculum graph (moves, prerequisites, attribute gates) |
 
 ## The one-paragraph summary

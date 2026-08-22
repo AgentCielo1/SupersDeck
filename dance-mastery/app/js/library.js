@@ -3,6 +3,7 @@
 // tiny FK skeleton + canvas 3D projection. Every animated move here cost $0.
 
 import tree from "./data/breaking.js";
+import capture85 from "./data/capture85.js";
 
 /* ---------------- tiny 3D math ---------------- */
 const cos = Math.cos, sin = Math.sin, PI = Math.PI, TAU = PI * 2;
@@ -198,6 +199,35 @@ const MOVES = {
   },
 };
 
+/* ---------------- real optical mocap clips (CMU subject 85) ---------------- */
+function decodeClip(clip) {
+  const bin = atob(clip.data);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const pos = new Int16Array(bytes.buffer); // millimeters
+  const nJ = clip.joints.length;
+  // drawable bones: parent links with real length; width by body part
+  const bones = [];
+  for (let j = 0; j < nJ; j++) {
+    const p = clip.joints[j].parent;
+    if (p < 0) continue;
+    const dx = pos[j * 3] - pos[p * 3], dy = pos[j * 3 + 1] - pos[p * 3 + 1], dz = pos[j * 3 + 2] - pos[p * 3 + 2];
+    if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 25) continue; // skip zero-length helper joints
+    const n = clip.joints[j].name;
+    const w = /Finger|Thumb|_end/.test(n) ? 2.5 : /Hand|Foot|Toe|Head/.test(n) ? 4 : /Arm|Leg/.test(n) ? 5 : 6.5;
+    bones.push([p, j, w]);
+  }
+  const headEnd = clip.joints.findIndex((j) => j.name === "Head_end");
+  return { ...clip, pos, nJ, bones, headEnd, duration: clip.nFrames / clip.fps };
+}
+const CAPTURES = {};
+for (const c of capture85.clips) CAPTURES[c.id] = decodeClip(c);
+
+function captureJoint(clip, frame, j) {
+  const base = (frame * clip.nJ + j) * 3;
+  return [clip.pos[base] / 1000, clip.pos[base + 1] / 1000, clip.pos[base + 2] / 1000];
+}
+
 /* ---------------- catalog ---------------- */
 const FAMILY_LABELS = { toprock: "Toprock", getdown: "Get-downs", footwork: "Footwork", freeze: "Freezes", power: "Power", trick: "Tricks", musicality: "Musicality", culture: "Culture", meta: "Battle craft" };
 const catalog = tree.nodes.filter((n) => ["move", "combo"].includes(n.type));
@@ -205,11 +235,13 @@ const catalog = tree.nodes.filter((n) => ["move", "combo"].includes(n.type));
 /* ---------------- viewer ---------------- */
 const canvas = document.getElementById("stage");
 const ctx = canvas.getContext("2d");
-let cam = { yaw: 0.7, pitch: 0.35, dist: 3.1, targetY: 0.55, auto: true };
+let cam = { yaw: 0.7, pitch: 0.35, dist: 3.1, target: [0, 0.55, 0], auto: true };
 let speed = 1, playing = true, t = 0, last = performance.now();
 let currentId = "footwork.six_step";
-let reel = new URLSearchParams(location.search).has("reel");
-const REEL_ORDER = Object.keys(MOVES);
+const reelParam = new URLSearchParams(location.search).get("reel");
+let reel = reelParam !== null;
+const REEL_ORDER = reelParam === "capture" ? Object.keys(CAPTURES) : Object.keys(MOVES);
+const REEL_SECONDS = (id) => CAPTURES[id] ? Math.min(CAPTURES[id].duration, 30) : 4.2;
 let reelIdx = 0, reelTimer = 0;
 
 function resize() {
@@ -220,8 +252,8 @@ function resize() {
 window.addEventListener("resize", resize);
 
 function project(v) {
-  // camera orbit around (0, targetY, 0)
-  let p = [v[0], v[1] - cam.targetY, v[2]];
+  // camera orbit around cam.target
+  let p = [v[0] - cam.target[0], v[1] - cam.target[1], v[2] - cam.target[2]];
   p = rotY(p, -cam.yaw);
   p = rotX(p, -cam.pitch);
   const z = p[2] + cam.dist;
@@ -232,12 +264,46 @@ function project(v) {
 function drawFloor() {
   ctx.strokeStyle = "rgba(76,194,255,0.14)";
   ctx.lineWidth = 1 * devicePixelRatio;
-  const N = 6, S = 0.5;
+  const N = 8, S = 0.5;
+  const ox = Math.round(cam.target[0] / S) * S, oz = Math.round(cam.target[2] / S) * S;
   for (let i = -N; i <= N; i++) {
-    for (const [a, b] of [[[i * S, 0, -N * S], [i * S, 0, N * S]], [[-N * S, 0, i * S], [N * S, 0, i * S]]]) {
+    for (const [a, b] of [
+      [[ox + i * S, 0, oz - N * S], [ox + i * S, 0, oz + N * S]],
+      [[ox - N * S, 0, oz + i * S], [ox + N * S, 0, oz + i * S]],
+    ]) {
       const pa = project(a), pb = project(b);
       ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
     }
+  }
+}
+
+function drawCapture(clip, frame) {
+  const hips = captureJoint(clip, frame, 0);
+  // smooth follow-cam on the dancer
+  cam.target[0] += (hips[0] - cam.target[0]) * 0.08;
+  cam.target[1] += (0.55 - cam.target[1]) * 0.08;
+  cam.target[2] += (hips[2] - cam.target[2]) * 0.08;
+
+  const sh = project([hips[0], 0, hips[2]]);
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
+  ctx.beginPath(); ctx.ellipse(sh.x, sh.y, 0.4 * sh.f, 0.12 * sh.f, 0, 0, TAU); ctx.fill();
+
+  const segs = clip.bones.map(([a, b, w]) => {
+    const pa = project(captureJoint(clip, frame, a));
+    const pb = project(captureJoint(clip, frame, b));
+    return { pa, pb, w, depth: (pa.z + pb.z) / 2 };
+  }).sort((s1, s2) => s2.depth - s1.depth);
+  for (const s of segs) {
+    const near = 1 - Math.min(1, Math.max(0, (s.depth - 2.2) / 2.6));
+    ctx.strokeStyle = `rgba(76,194,255,${0.55 + 0.45 * near})`;
+    ctx.lineCap = "round";
+    ctx.lineWidth = s.w * devicePixelRatio * (s.pa.f / (canvas.height * 0.9)) * 7;
+    ctx.beginPath(); ctx.moveTo(s.pa.x, s.pa.y); ctx.lineTo(s.pb.x, s.pb.y); ctx.stroke();
+  }
+  if (clip.headEnd >= 0) {
+    const h = project(captureJoint(clip, frame, clip.headEnd));
+    ctx.fillStyle = "#4cc2ff";
+    ctx.beginPath(); ctx.arc(h.x, h.y, 0.085 * h.f, 0, TAU); ctx.fill();
   }
 }
 
@@ -266,19 +332,29 @@ function drawFigure(J) {
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const move = MOVES[currentId];
-  if (playing && move) {
-    const cycleSec = (move.beats * 60) / move.bpm;
-    t += (dt / cycleSec) * speed;
+  const cap = CAPTURES[currentId];
+  if (playing) {
+    if (move) t += (dt / ((move.beats * 60) / move.bpm)) * speed;
+    else if (cap) t += dt * speed; // seconds for captures
   }
   if (cam.auto) cam.yaw += dt * 0.35;
   if (reel) {
     reelTimer += dt;
-    if (reelTimer > 4.2) { reelTimer = 0; reelIdx = (reelIdx + 1) % REEL_ORDER.length; select(REEL_ORDER[reelIdx]); }
+    if (reelTimer > REEL_SECONDS(REEL_ORDER[reelIdx])) {
+      reelTimer = 0; reelIdx = (reelIdx + 1) % REEL_ORDER.length; select(REEL_ORDER[reelIdx]);
+    }
   }
   ctx.fillStyle = "#0d0f14";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawFloor();
-  if (move) drawFigure(clampGround(fk(samplePose(move, t))));
+  if (cap) {
+    drawCapture(cap, Math.floor(t * cap.fps) % cap.nFrames);
+  } else {
+    // ease the follow-cam back to the origin for procedural moves
+    cam.target[0] *= 0.92; cam.target[2] *= 0.92;
+    cam.target[1] += (0.55 - cam.target[1]) * 0.08;
+    if (move) drawFigure(clampGround(fk(samplePose(move, t))));
+  }
   requestAnimationFrame(frame);
 }
 
@@ -286,21 +362,28 @@ function frame(now) {
 function select(id) {
   currentId = id;
   t = 0;
-  const n = catalog.find((c) => c.id === id);
+  const cap = CAPTURES[id];
   const animated = Boolean(MOVES[id]);
-  document.getElementById("move-name").textContent = n?.name ?? id;
-  document.getElementById("move-meta").innerHTML = animated
-    ? `<span class="badge ok">procedural v1 · $0</span> ${MOVES[id].bpm} BPM · ${MOVES[id].beats}-count loop · drag to orbit`
-    : `<span class="badge queue">factory queue</span> lane: self-capture (Doc 08) — phone rig → FreeMoCap → Blender → GLB`;
-  if (!animated) currentId = null; // show empty stage note
-  document.getElementById("empty").style.display = animated ? "none" : "grid";
+  const n = catalog.find((c) => c.id === id);
+  document.getElementById("move-name").textContent = cap ? cap.name : (n?.name ?? id);
+  document.getElementById("move-meta").innerHTML = cap
+    ? `<span class="badge star">★ real optical mocap</span> CMU Graphics Lab, subject 85 (pro breaker, marker stage) · ${Math.round(cap.duration)}s · this is the "finished version" motion quality`
+    : animated
+      ? `<span class="badge ok">procedural v1 · $0</span> ${MOVES[id].bpm} BPM · ${MOVES[id].beats}-count loop · drag to orbit`
+      : `<span class="badge queue">factory queue</span> lane: self-capture (Doc 08) — phone rig → FreeMoCap → Blender → GLB`;
+  if (!animated && !cap) currentId = null; // show empty stage note
+  document.getElementById("empty").style.display = (animated || cap) ? "none" : "grid";
   document.querySelectorAll(".mv").forEach((el) => el.classList.toggle("sel", el.dataset.id === id));
 }
 
 function buildList() {
   const box = document.getElementById("list");
   const fams = [...new Set(catalog.map((n) => n.family))];
-  box.innerHTML = fams.map((f) => {
+  const capGroup = `<div class="fam-group"><h3>★ Studio capture — the finished look</h3>` +
+    Object.values(CAPTURES).map((c) =>
+      `<button class="mv anim cap" data-id="${c.id}"><span>${c.name}</span><em>★ mocap</em></button>`).join("") +
+    `</div>`;
+  box.innerHTML = capGroup + fams.map((f) => {
     const rows = catalog.filter((n) => n.family === f).map((n) => {
       const anim = Boolean(MOVES[n.id]);
       return `<button class="mv ${anim ? "anim" : ""}" data-id="${n.id}">
@@ -309,7 +392,7 @@ function buildList() {
     return `<div class="fam-group"><h3>${FAMILY_LABELS[f] ?? f}</h3>${rows}</div>`;
   }).join("");
   box.querySelectorAll(".mv").forEach((el) => el.addEventListener("click", () => { reel = false; select(el.dataset.id); }));
-  const counts = `${catalog.length} moves in the library · ${Object.keys(MOVES).length} animated in the $0 procedural lane · ${catalog.length - Object.keys(MOVES).length} in the factory queue`;
+  const counts = `${catalog.length} moves in the library · ${Object.keys(CAPTURES).length} real studio-mocap clips (CMU) · ${Object.keys(MOVES).length} procedural v1 · ${catalog.length - Object.keys(MOVES).length} in the factory queue`;
   document.getElementById("counts").textContent = counts;
 }
 
