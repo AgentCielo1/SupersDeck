@@ -51,6 +51,10 @@ js/data/     breaking.js — GENERATED from ../data/breaking-skill-tree.json
              (regenerate with: npm run sync-data)
 js/app.js    UI wiring only
 index.html   the Today screen
+library.html + js/library.js
+             Move Library simulation (Doc 08 procedural lane): the full move
+             catalog with a procedurally animated 3D breaker — orbit camera,
+             speed control, showreel mode (?reel=1). Zero dependencies.
 ```
 
 The engine is style-agnostic: point it at any skill-tree JSON in the same format
