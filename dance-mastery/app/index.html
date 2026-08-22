@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dance Mastery — Today</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%95%BA%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d0f14">
 <style>
   :root {
     --bg: #0d0f14; --panel: #151924; --panel2: #1b2130; --line: #262e42;
@@ -49,6 +51,8 @@
   .done-card h2 { color: var(--ok); }
   .item { border-top: 1px solid var(--line); padding: 10px 0 8px; }
   .item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .mlink { color: var(--text); text-decoration: none; border-bottom: 1px dotted var(--accent2); }
+  .mlink:hover { color: var(--accent2); }
   .fam { font-size: .7rem; text-transform: uppercase; letter-spacing: .8px; padding: 2px 8px; border-radius: 99px; background: var(--panel2); color: var(--accent2); }
   .fam.power { color: var(--alert); } .fam.freeze { color: var(--accent2); }
   .fam.footwork { color: var(--ok); } .fam.toprock { color: var(--accent); }
@@ -89,6 +93,7 @@
     <h1>DANCE <em>MASTERY</em></h1>
     <div id="date"></div>
     <div id="season"></div>
+    <nav style="margin-top:6px"><a href="library.html" style="color:var(--accent2);font-size:.85rem;text-decoration:none">Move Library →</a></nav>
   </header>
 
   <div id="firewall" class="banner"></div>
@@ -113,5 +118,10 @@
   </footer>
 
   <script type="module" src="js/app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    }
+  </script>
 </body>
 </html>
