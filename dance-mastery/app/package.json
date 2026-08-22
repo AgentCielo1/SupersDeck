@@ -1,0 +1,12 @@
+{
+  "name": "dance-mastery-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase B0: the daily session engine over the breaking skill graph. Zero dependencies.",
+  "scripts": {
+    "test": "node --test test/",
+    "sync-data": "node scripts/sync-data.mjs",
+    "serve": "python3 -m http.server 4173"
+  }
+}

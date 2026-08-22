@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dance Mastery — Today</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%95%BA%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0d0f14; --panel: #151924; --panel2: #1b2130; --line: #262e42;
+    --text: #e8ebf2; --muted: #8b94ab; --accent: #f5a623; --accent2: #4cc2ff;
+    --ok: #38c172; --warn: #f5a623; --alert: #ff6b6b;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 20px 16px 80px; max-width: 720px; margin: 0 auto;
+  }
+  header { margin-bottom: 16px; }
+  h1 { font-size: 1.5rem; letter-spacing: .5px; }
+  h1 em { color: var(--accent); font-style: normal; }
+  #date { color: var(--muted); }
+  #season { color: var(--accent2); font-size: .9rem; margin-top: 2px; }
+  .banner { border-radius: var(--radius); padding: 12px 14px; margin: 14px 0; font-size: .95rem; border: 1px solid var(--line); background: var(--panel); }
+  .banner.ok { border-color: #1f4d34; }
+  .banner.warn { border-color: #5c4413; background: #201a0e; }
+  .banner.alert { border-color: #5c2020; background: #1f1212; }
+  .streak { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 10px 0 18px; }
+  .dot { width: 16px; height: 16px; border-radius: 50%; display: inline-block; margin-right: 4px; background: var(--panel2); border: 1px solid var(--line); }
+  .dot.done { background: var(--ok); border-color: var(--ok); }
+  .dot.frozen { background: var(--accent2); border-color: var(--accent2); }
+  .dot.today { border-color: var(--accent); border-width: 2px; }
+  #weekcount { font-weight: 600; }
+  #freezes { color: var(--muted); font-size: .85rem; }
+  #sizes { display: flex; gap: 8px; margin-bottom: 16px; }
+  .size {
+    flex: 1; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 10px 6px; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+    font-size: .95rem;
+  }
+  .size small { color: var(--muted); }
+  .size.active { border-color: var(--accent); background: #241d10; }
+  .size:disabled { opacity: .35; cursor: not-allowed; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 1.05rem; margin-bottom: 6px; color: var(--accent); }
+  .card .note { color: var(--muted); font-size: .85rem; margin-bottom: 10px; }
+  .done-card h2 { color: var(--ok); }
+  .item { border-top: 1px solid var(--line); padding: 10px 0 8px; }
+  .item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .fam { font-size: .7rem; text-transform: uppercase; letter-spacing: .8px; padding: 2px 8px; border-radius: 99px; background: var(--panel2); color: var(--accent2); }
+  .fam.power { color: var(--alert); } .fam.freeze { color: var(--accent2); }
+  .fam.footwork { color: var(--ok); } .fam.toprock { color: var(--accent); }
+  .fam.attr { color: var(--warn); }
+  .stage, .warm, .anchor { font-size: .75rem; color: var(--muted); }
+  .warm { border: 1px dashed var(--line); border-radius: 99px; padding: 1px 8px; }
+  .grades { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .grade, .levelup {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 99px; padding: 5px 14px; cursor: pointer; font-size: .85rem;
+  }
+  .grade.sel { border-color: var(--ok); background: #10281c; }
+  .levelup { color: var(--accent); }
+  .levelup.sel { border-color: var(--accent); background: #241d10; }
+  .check { display: flex; gap: 8px; align-items: center; margin-top: 8px; color: var(--muted); cursor: pointer; }
+  .test { font-size: .85rem; color: var(--muted); margin-top: 4px; }
+  #complete {
+    width: 100%; padding: 14px; border: none; border-radius: var(--radius);
+    background: var(--accent); color: #14100a; font-size: 1.05rem; font-weight: 700; cursor: pointer; margin: 4px 0 24px;
+  }
+  #complete:active { transform: scale(.99); }
+  #progress { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+  #progress h2 { font-size: 1rem; color: var(--accent2); margin-bottom: 10px; }
+  .prog { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .prog-label { width: 100px; font-size: .85rem; color: var(--muted); }
+  .prog-num { font-size: .8rem; color: var(--muted); width: 44px; text-align: right; }
+  .bar { flex: 1; height: 8px; border-radius: 99px; background: var(--panel2); overflow: hidden; display: flex; }
+  .fill.clean { background: var(--ok); height: 100%; }
+  .fill.touched { background: #2a5b41; height: 100%; }
+  footer { display: flex; gap: 8px; margin-top: 20px; }
+  footer button { background: var(--panel); color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: .85rem; }
+  footer button:hover { color: var(--text); }
+  #reset { margin-left: auto; color: #a05050; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>DANCE <em>MASTERY</em></h1>
+    <div id="date"></div>
+    <div id="season"></div>
+  </header>
+
+  <div id="firewall" class="banner"></div>
+
+  <div class="streak">
+    <span id="weekdots"></span>
+    <span id="weekcount"></span>
+    <span id="freezes"></span>
+  </div>
+
+  <div id="sizes"></div>
+  <div id="session"></div>
+  <button id="complete">Complete session — it counts</button>
+
+  <section id="progress"></section>
+
+  <footer>
+    <button id="export">Export</button>
+    <button id="import">Import</button>
+    <button id="freeze">Freeze yesterday</button>
+    <button id="reset">Reset</button>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
