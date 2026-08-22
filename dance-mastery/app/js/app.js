@@ -201,6 +201,19 @@ $("#freeze").addEventListener("click", () => {
   render();
 });
 
+// Crew board (Doc 10): one shared live board per crew; URL stored locally.
+$("#crew-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  let url = null;
+  try { url = storage.getItem("dance-mastery-crew-url"); } catch { /* no storage */ }
+  if (!url) {
+    url = window.prompt("Paste your crew board link (The Cypher). You'll only do this once:");
+    if (!url || !/^https?:\/\//.test(url)) return;
+    try { storage.setItem("dance-mastery-crew-url", url); } catch { /* no storage */ }
+  }
+  window.open(url, "_blank", "noopener");
+});
+
 $("#reset").addEventListener("click", () => {
   if (!confirm("Reset ALL training data? Export first if you want a backup.")) return;
   state = newState(todayKey());
