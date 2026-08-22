@@ -22,3 +22,4 @@ tsconfig.tsbuildinfo
 supabase/set-user-password.sql
 supabase/fix-adam-login.sql
 supabase/*password*.sql
+dance-mastery/app/vendor/

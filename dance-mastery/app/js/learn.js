@@ -31,6 +31,7 @@ const title = cap ? cap.name : (node?.name ?? moveId);
 document.title = `Learn: ${title}`;
 
 $("#title").textContent = title;
+$("#check-link").href = `practice.html?move=${moveId}&mode=check`;
 $("#subtitle").textContent = cap
   ? "★ Real optical mocap (CMU subject 85) — study the finished form"
   : move

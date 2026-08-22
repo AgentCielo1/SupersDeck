@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dance Mastery — Practice Mirror</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%95%BA%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0d0f14; --panel: #151924; --panel2: #1b2130; --line: #262e42;
+    --text: #e8ebf2; --muted: #8b94ab; --accent: #f5a623; --accent2: #4cc2ff;
+    --ok: #38c172; --warn: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 10px 16px 6px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  h1 { font-size: 1.15rem; color: var(--accent); }
+  header a { color: var(--muted); text-decoration: none; font-size: .85rem; }
+  select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: .9rem; }
+  #src-note { width: 100%; color: var(--muted); font-size: .78rem; }
+  #src-note button { background: var(--panel2); color: var(--accent2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+  #pmodes { display: flex; gap: 6px; padding: 6px 16px; }
+  #pmodes button { background: var(--panel); color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 6px 16px; cursor: pointer; font-size: .88rem; }
+  #pmodes button.active { color: var(--text); border-color: var(--accent); background: #241d10; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #stage-wrap { flex: 1.4; position: relative; min-width: 0; min-height: 0; }
+  #stage { width: 100%; height: 100%; display: block; }
+  #cam { display: none; }
+  #gate {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    background: rgba(21,25,36,.92); border: 1px solid var(--warn); color: var(--text);
+    padding: 8px 18px; border-radius: 99px; font-size: .9rem; display: none;
+  }
+  aside { flex: 1; border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; min-width: 300px; }
+  .panel h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin-bottom: 10px; }
+  #bpm, #hold { font-size: 4.5rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  #hold.good, .score.good { color: var(--ok); }
+  .pill { display: inline-block; border: 1px solid var(--line); border-radius: 99px; padding: 4px 14px; color: var(--muted); font-size: .85rem; margin-top: 8px; }
+  .pill.good { color: var(--ok); border-color: #1f4d34; }
+  .pill.bad { color: var(--warn); border-color: #5c2020; }
+  .muted { color: var(--muted); font-size: .85rem; margin-top: 8px; }
+  .tiny { color: var(--muted); font-size: .72rem; margin-top: 10px; }
+  #target-bpm, #hold-best { color: var(--muted); font-size: .85rem; }
+  button.big {
+    margin-top: 12px; background: var(--accent); color: #14100a; border: none;
+    border-radius: 10px; padding: 12px 18px; font-size: 1rem; font-weight: 700; cursor: pointer;
+  }
+  .score { font-size: 4rem; font-weight: 800; margin-top: 6px; }
+  .score.mid { color: var(--accent); }
+  .score.bad { color: var(--warn); }
+  .verdict { font-weight: 600; margin-top: 2px; }
+  #review-stage-wrap { display: none; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
+  #review-video { width: 100%; border-radius: 10px; background: #000; }
+  #review-stage { width: 100%; height: 220px; border: 1px solid var(--line); border-radius: 10px; }
+  .cp { display: flex; gap: 8px; align-items: baseline; color: var(--text); font-size: .88rem; margin: 6px 0; cursor: pointer; }
+  h4 { color: var(--accent2); font-size: .78rem; text-transform: uppercase; letter-spacing: 1px; margin: 12px 0 4px; }
+  label.inline { color: var(--muted); font-size: .8rem; display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  input[type=range] { accent-color: var(--accent); }
+  @media (max-width: 760px) { main { flex-direction: column; } aside { border-left: none; border-top: 1px solid var(--line); } }
+</style>
+</head>
+<body>
+  <header>
+    <h1>PRACTICE <em style="color:var(--accent2);font-style:normal">MIRROR</em></h1>
+    <select id="move"></select>
+    <a href="learn.html">← lesson</a>
+    <a href="index.html">today →</a>
+    <div id="src-note">starting camera…</div>
+  </header>
+  <div id="pmodes">
+    <button data-pmode="tempo">Tempo</button>
+    <button data-pmode="freeze">Freeze</button>
+    <button data-pmode="check">Move check</button>
+    <button data-pmode="review">Record & review</button>
+  </div>
+  <main>
+    <div id="stage-wrap">
+      <canvas id="stage"></canvas>
+      <video id="cam" playsinline muted></video>
+      <div id="gate"></div>
+    </div>
+    <aside>
+      <div class="panel" id="panel-tempo">
+        <h2>Groove tempo</h2>
+        <div id="bpm">—</div>
+        <div id="target-bpm"></div>
+        <div><span class="pill" id="beat-pill">listening to your bounce…</span></div>
+        <p class="muted">Bounce to the beat. Half-time and double-time both count as on-beat — that's how dancers actually ride a track.</p>
+      </div>
+      <div class="panel" id="panel-freeze" style="display:none">
+        <h2>Freeze hold</h2>
+        <div id="hold">0.0s</div>
+        <div id="hold-best">best: 0.0s · goal: 3.0s on beat</div>
+        <p class="muted">Lock the shape. The timer runs while your whole body is still — breathing is allowed, wobbling is data.</p>
+      </div>
+      <div class="panel" id="panel-check">
+        <h2>Move check — <span id="check-name"></span></h2>
+        <button class="big" id="rec-rep">● Record a rep</button>
+        <div id="check-result"><p class="muted">One rep, whole body in frame. I'll compare your joint angles against the reference with dynamic time warping.</p></div>
+      </div>
+      <div class="panel" id="panel-review" style="display:none">
+        <h2>Record & review (Tier 3)</h2>
+        <p class="muted">For the moves cameras can't honestly judge — power, inversions — YOU are the judge. Record, then compare side-by-side with the reference at matched speed.</p>
+        <button class="big" id="rec-clip">● Record (max 20s)</button>
+        <div id="review-stage-wrap">
+          <video id="review-video" controls muted></video>
+          <canvas id="review-stage"></canvas>
+          <label class="inline">both at <input id="review-speed" type="range" min="0.25" max="1" step="0.05" value="0.5"> speed</label>
+          <div id="review-cps"></div>
+        </div>
+      </div>
+    </aside>
+  </main>
+  <script type="module" src="js/practice.js"></script>
+</body>
+</html>
