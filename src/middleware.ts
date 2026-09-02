@@ -31,6 +31,10 @@ const PUBLIC_PATHS = ["/login", "/auth", "/intake", "/track", "/sign-in", "/priv
 //   • GET  /api/buildings/<id>       — /intake + QR posters fetch building info.
 //   • GET/POST /api/public/sign-in/* — contractor self sign-in from the QR code.
 const PUBLIC_API_BY_METHOD: Array<{ method: string; prefix: string; exact?: boolean }> = [
+  // Health is public so "is this deployment configured, or serving sample data
+  // as real" is answerable from outside. It returns an aggregate only; the
+  // per-variable detail requires CRON_SECRET.
+  { method: "GET", prefix: "/api/health", exact: true },
   { method: "POST", prefix: "/api/work-orders", exact: true },
   { method: "POST", prefix: "/api/intake/photo", exact: true },
   { method: "GET", prefix: "/api/buildings" },

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +34,24 @@ export async function GET() {
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
     env.NEXT_PUBLIC_DEMO !== "1";
 
+  // The per-variable map enumerates which guards are configured, which is a
+  // small but real disclosure — it tells an unauthenticated caller whether, say,
+  // the intake HMAC secret is set. So the public answer is the aggregate only.
+  // The detail is available to a caller holding CRON_SECRET, the same secret the
+  // scheduled routes already authenticate with.
+  const authorised =
+    Boolean(process.env.CRON_SECRET) &&
+    headers().get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+
   return NextResponse.json(
-    { status: servingRealData ? "ok" : "degraded", app: "supersdeck", servingRealData, env, ts: new Date().toISOString() },
+    {
+      status: servingRealData ? "ok" : "degraded",
+      app: "supersdeck",
+      servingRealData,
+      demo: env.NEXT_PUBLIC_DEMO === "1",
+      ...(authorised ? { env } : {}),
+      ts: new Date().toISOString(),
+    },
     { status: servingRealData ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );
 }
