@@ -59,7 +59,51 @@ export const INTAKE_SECRET_MISSING_MESSAGE =
  * optional feature and its guard already fails CLOSED when unset (every path is
  * refused), so an absent value costs a dark file browser, not an open door.
  */
-export const PRODUCTION_REQUIRED_ENV = ["INTAKE_TOKEN_SECRET"] as const;
+export const PRODUCTION_REQUIRED_ENV = [
+  "INTAKE_TOKEN_SECRET",
+  // Added 2026-09-02. src/lib/db.ts falls back to the bundled SAMPLE_* records
+  // when Supabase is unconfigured, so an unconfigured production deployment does
+  // not fail — it serves fictional buildings, units and work orders as if they
+  // were the client's. That is BUG-002's shape, and src/env.ts cannot catch it:
+  // every variable there is `.optional()`, so an environment with no Supabase at
+  // all passes validation.
+  //
+  // Verified against production BEFORE requiring these: GET /api/health reported
+  // servingRealData true, demo false.
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+] as const;
+
+export const SUPABASE_MISSING_MESSAGE =
+  "Supabase is not configured in production. src/lib/db.ts falls back to the " +
+  "bundled sample data, so this deployment would serve fictional buildings and " +
+  "work orders as real records. Set NEXT_PUBLIC_SUPABASE_URL and " +
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY in the Vercel project (Production), then redeploy.";
+
+export interface SupabaseEnvInput {
+  nodeEnv: string | undefined;
+  hasUrl: boolean;
+  hasAnonKey: boolean;
+  skipValidation: boolean;
+}
+
+/**
+ * True when production would serve seed data as real.
+ *
+ * Pure and exported so a test can prove it fires — the same discipline as the
+ * intake guard, because a boot check nobody has watched fail is the bug it
+ * exists to prevent, one level up.
+ */
+export function supabaseMustBeConfigured({
+  nodeEnv,
+  hasUrl,
+  hasAnonKey,
+  skipValidation,
+}: SupabaseEnvInput): boolean {
+  if (skipValidation) return false;
+  if (nodeEnv !== "production") return false;
+  return !hasUrl || !hasAnonKey;
+}
 
 /**
  * Called once at server boot (src/instrumentation.ts). Throws — which in a
@@ -74,5 +118,16 @@ export function assertProductionEnv(env: NodeJS.ProcessEnv = process.env): void 
     })
   ) {
     throw new Error(INTAKE_SECRET_MISSING_MESSAGE);
+  }
+
+  if (
+    supabaseMustBeConfigured({
+      nodeEnv: env.NODE_ENV,
+      hasUrl: Boolean(env.NEXT_PUBLIC_SUPABASE_URL),
+      hasAnonKey: Boolean(env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+      skipValidation: Boolean(env.SKIP_ENV_VALIDATION),
+    })
+  ) {
+    throw new Error(SUPABASE_MISSING_MESSAGE);
   }
 }
