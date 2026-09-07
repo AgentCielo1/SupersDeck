@@ -1,9 +1,15 @@
 "use client";
 
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { resolvePrefillBuilding } from "@/lib/wo-prefill";
+import {
+  clearWoDraft,
+  loadWoDraft,
+  mergeDraftWithPrefill,
+  saveWoDraft,
+} from "@/lib/wo-draft";
 import VoiceNoteRecorder from "@/components/VoiceNoteRecorder";
 import { useVoiceCapture } from "@workorder/kit/intake/useVoiceCapture";
 import type { LangCode } from "@workorder/kit/intake/strings";
@@ -57,6 +63,87 @@ function NewWorkOrderForm() {
   // Speak-or-type: dictate into Title or Description via the mic (Web Speech).
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+
+  // Controlled so the draft autosave (below) can capture and restore them.
+  const [buildingId, setBuildingId] = useState(
+    prefillBuildingId ?? SAMPLE_BUILDINGS[0]?.id ?? "",
+  );
+  const [unitLabel, setUnitLabel] = useState(prefillUnit);
+  const [category, setCategory] = useState("other");
+  const [priority, setPriority] = useState("normal");
+  const [reporterName, setReporterName] = useState(prefillReporter);
+  const [reporterPhone, setReporterPhone] = useState(prefillPhone);
+
+  // Draft autosave: typed text survives the phone OS killing the backgrounded
+  // tab, refreshes, and mid-form navigation. Restore happens once on mount
+  // (behind a visible banner); every field change re-saves; a successful
+  // submit clears it. Photos/voice memos can't be persisted (picked files
+  // can't be stashed), so only text is protected. See src/lib/wo-draft.ts.
+  const [draftRestored, setDraftRestored] = useState(false);
+  const hydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    try {
+      const draft = loadWoDraft(window.localStorage);
+      if (!draft) return;
+      const merged = mergeDraftWithPrefill(
+        draft,
+        {
+          building_id: prefillBuildingId,
+          unit_label: prefillUnit,
+          reporter_name: prefillReporter,
+          reporter_phone: prefillPhone,
+        },
+        SAMPLE_BUILDINGS.map((b) => b.id),
+      );
+      if (merged.building_id) setBuildingId(merged.building_id);
+      setUnitLabel(merged.unit_label);
+      setTitle(merged.title);
+      setDescription(merged.description);
+      if (merged.category) setCategory(merged.category);
+      if (merged.priority) setPriority(merged.priority);
+      setReporterName(merged.reporter_name);
+      setReporterPhone(merged.reporter_phone);
+      setDraftRestored(true);
+    } catch {
+      // Storage unavailable (private mode, blocked site data) — start fresh.
+    }
+  }, [prefillBuildingId, prefillUnit, prefillReporter, prefillPhone]);
+
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    try {
+      saveWoDraft(window.localStorage, {
+        building_id: buildingId,
+        unit_label: unitLabel,
+        title,
+        description,
+        category,
+        priority,
+        reporter_name: reporterName,
+        reporter_phone: reporterPhone,
+      });
+    } catch {
+      // Best-effort — never let a storage failure break typing.
+    }
+  }, [buildingId, unitLabel, title, description, category, priority, reporterName, reporterPhone]);
+
+  function discardDraft() {
+    try {
+      clearWoDraft(window.localStorage);
+    } catch {}
+    setBuildingId(prefillBuildingId ?? SAMPLE_BUILDINGS[0]?.id ?? "");
+    setUnitLabel(prefillUnit);
+    setTitle("");
+    setDescription("");
+    setCategory("other");
+    setPriority("normal");
+    setReporterName(prefillReporter);
+    setReporterPhone(prefillPhone);
+    setDraftRestored(false);
+  }
   const [voiceField, setVoiceField] = useState<null | "title" | "description">(null);
   const [voiceLang, setVoiceLang] = useState<LangCode>("en");
   const [photos, setPhotos] = useState<File[]>([]);
@@ -141,6 +228,9 @@ function NewWorkOrderForm() {
               setSubmitting(false);
               return;
             }
+            try {
+              clearWoDraft(window.localStorage);
+            } catch {}
             router.push(`/work-orders/${data.id}`);
             router.refresh();
           } catch (err) {
@@ -150,11 +240,24 @@ function NewWorkOrderForm() {
         }}
         className="space-y-4 rounded-xl2 border border-ink-200 bg-white p-5"
       >
+        {draftRestored && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-ink-200 bg-brand-50/40 px-3 py-2 text-xs text-ink-600">
+            <span>Restored your unsaved draft from last time.</span>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="whitespace-nowrap font-medium text-brand hover:underline"
+            >
+              Clear draft
+            </button>
+          </div>
+        )}
         <Field label="Building">
           <select
             name="building_id"
             required
-            defaultValue={prefillBuildingId}
+            value={buildingId}
+            onChange={(e) => setBuildingId(e.target.value)}
             className={fieldClass}
           >
             {SAMPLE_BUILDINGS.map((b) => (
@@ -167,7 +270,8 @@ function NewWorkOrderForm() {
         <Field label="Unit (leave blank if common area)">
           <input
             name="unit_label"
-            defaultValue={prefillUnit}
+            value={unitLabel}
+            onChange={(e) => setUnitLabel(e.target.value)}
             placeholder="e.g. 7C"
             className={fieldClass}
           />
@@ -259,7 +363,12 @@ function NewWorkOrderForm() {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Category">
-            <select name="category" defaultValue="other" className={fieldClass}>
+            <select
+              name="category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className={fieldClass}
+            >
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {c.replace(/-/g, " ")}
@@ -268,7 +377,12 @@ function NewWorkOrderForm() {
             </select>
           </Field>
           <Field label="Priority">
-            <select name="priority" defaultValue="normal" className={fieldClass}>
+            <select
+              name="priority"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              className={fieldClass}
+            >
               <option value="emergency">Emergency</option>
               <option value="high">High</option>
               <option value="normal">Normal</option>
@@ -280,14 +394,16 @@ function NewWorkOrderForm() {
           <input
             name="reporter_name"
             required
-            defaultValue={prefillReporter}
+            value={reporterName}
+            onChange={(e) => setReporterName(e.target.value)}
             className={fieldClass}
           />
         </Field>
         <Field label="Reporter phone (optional)">
           <input
             name="reporter_phone"
-            defaultValue={prefillPhone}
+            value={reporterPhone}
+            onChange={(e) => setReporterPhone(e.target.value)}
             className={fieldClass}
           />
         </Field>
