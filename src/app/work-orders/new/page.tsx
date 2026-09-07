@@ -15,25 +15,10 @@ import { useVoiceCapture } from "@workorder/kit/intake/useVoiceCapture";
 import type { LangCode } from "@workorder/kit/intake/strings";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { SAMPLE_BUILDINGS } from "@/data/sample-data";
+import { WO_CATEGORIES, categoryTitle } from "@/lib/wo-categories";
 
 // Live private bucket for WO photos + attachments (see PHOTO_BUCKET in lib/storage).
 import { PHOTO_BUCKET as WO_BUCKET } from "@/lib/buckets";
-
-const CATEGORIES = [
-  "no-heat",
-  "no-hot-water",
-  "leak",
-  "electrical",
-  "appliance",
-  "lock-key",
-  "pest",
-  "mold",
-  "elevator",
-  "intercom",
-  "common-area",
-  "lead-concern",
-  "other",
-];
 
 export default function NewWorkOrderPage() {
   // useSearchParams needs a Suspense boundary to prerender in Next 14.
@@ -69,8 +54,23 @@ function NewWorkOrderForm() {
     prefillBuildingId ?? SAMPLE_BUILDINGS[0]?.id ?? "",
   );
   const [unitLabel, setUnitLabel] = useState(prefillUnit);
-  const [category, setCategory] = useState("other");
+  // "" = nothing tapped yet; the API coerces a blank category to "other".
+  const [category, setCategory] = useState("");
   const [priority, setPriority] = useState("normal");
+
+  // Tapping a category seeds the Title ("No heat — Apt 7C"), but never
+  // clobbers hand-typed text: it only replaces an empty title or the exact
+  // text a previous tap wrote.
+  const lastAutoTitleRef = useRef("");
+  function pickCategory(key: string) {
+    const next = category === key ? "" : key;
+    setCategory(next);
+    if (!title.trim() || title === lastAutoTitleRef.current) {
+      const auto = next ? categoryTitle(next, unitLabel) : "";
+      setTitle(auto);
+      lastAutoTitleRef.current = auto;
+    }
+  }
   const [reporterName, setReporterName] = useState(prefillReporter);
   const [reporterPhone, setReporterPhone] = useState(prefillPhone);
 
@@ -138,8 +138,9 @@ function NewWorkOrderForm() {
     setUnitLabel(prefillUnit);
     setTitle("");
     setDescription("");
-    setCategory("other");
+    setCategory("");
     setPriority("normal");
+    lastAutoTitleRef.current = "";
     setReporterName(prefillReporter);
     setReporterPhone(prefillPhone);
     setDraftRestored(false);
@@ -276,6 +277,37 @@ function NewWorkOrderForm() {
             className={fieldClass}
           />
         </Field>
+        {/* Quick-tap category grid (same pattern as the tenant intake).
+            Tapping seeds the Title; the hidden input keeps FormData intact. */}
+        <div>
+          <span className="mb-1 block text-xs font-medium text-ink-600">
+            Category — tap to pick, fills the title for you
+          </span>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {WO_CATEGORIES.map((c) => {
+              const active = c.key === category;
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => pickCategory(c.key)}
+                  aria-pressed={active}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition ${
+                    active
+                      ? "border-brand-600 bg-brand-50 text-brand-800 ring-1 ring-brand-100"
+                      : "border-ink-200 bg-white text-ink-700 hover:border-brand-400 hover:bg-brand-50/50"
+                  }`}
+                >
+                  <span className="text-lg leading-none" aria-hidden>
+                    {c.icon}
+                  </span>
+                  <span className="leading-tight">{c.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <input type="hidden" name="category" value={category || "other"} />
+        </div>
         {voice.supported && (
           <Field label="🎤 Dictation language — spoken text is auto-translated to English on save">
             <select
@@ -361,35 +393,19 @@ function NewWorkOrderForm() {
             <VoiceNoteRecorder onChange={setMemo} />
           </label>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Category">
-            <select
-              name="category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className={fieldClass}
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c.replace(/-/g, " ")}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Priority">
-            <select
-              name="priority"
-              value={priority}
-              onChange={(e) => setPriority(e.target.value)}
-              className={fieldClass}
-            >
-              <option value="emergency">Emergency</option>
-              <option value="high">High</option>
-              <option value="normal">Normal</option>
-              <option value="low">Low</option>
-            </select>
-          </Field>
-        </div>
+        <Field label="Priority">
+          <select
+            name="priority"
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            className={fieldClass}
+          >
+            <option value="emergency">Emergency</option>
+            <option value="high">High</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+        </Field>
         <Field label="Reporter name">
           <input
             name="reporter_name"
