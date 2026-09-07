@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   INTAKE_SECRET_MISSING_MESSAGE,
   PRODUCTION_REQUIRED_ENV,
+  SUPABASE_MISSING_MESSAGE,
   assertProductionEnv,
   intakeGuardMustBeConfigured,
+  supabaseMustBeConfigured,
 } from "../../src/lib/production-env";
 
 // =============================================================================
@@ -77,22 +79,91 @@ describe("intakeGuardMustBeConfigured", () => {
   });
 });
 
+describe("supabaseMustBeConfigured", () => {
+  it("FIRES in production when either Supabase variable is missing — and not when both are set", () => {
+    for (const [hasUrl, hasAnonKey] of [
+      [false, false],
+      [true, false],
+      [false, true],
+    ] as const) {
+      expect(
+        supabaseMustBeConfigured({
+          nodeEnv: "production",
+          hasUrl,
+          hasAnonKey,
+          skipValidation: false,
+        }),
+      ).toBe(true);
+    }
+    // Positive control — rules out an always-true predicate.
+    expect(
+      supabaseMustBeConfigured({
+        nodeEnv: "production",
+        hasUrl: true,
+        hasAnonKey: true,
+        skipValidation: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("stands down outside production and under SKIP_ENV_VALIDATION", () => {
+    expect(
+      supabaseMustBeConfigured({
+        nodeEnv: "development",
+        hasUrl: false,
+        hasAnonKey: false,
+        skipValidation: false,
+      }),
+    ).toBe(false);
+    expect(
+      supabaseMustBeConfigured({
+        nodeEnv: "production",
+        hasUrl: false,
+        hasAnonKey: false,
+        skipValidation: true,
+      }),
+    ).toBe(false);
+    // Positive control — production without the skip still fires.
+    expect(
+      supabaseMustBeConfigured({
+        nodeEnv: "production",
+        hasUrl: false,
+        hasAnonKey: false,
+        skipValidation: false,
+      }),
+    ).toBe(true);
+  });
+});
+
 describe("assertProductionEnv", () => {
   it("throws an actionable error in production, and is silent when configured", () => {
     expect(() =>
       assertProductionEnv({ NODE_ENV: "production" } as NodeJS.ProcessEnv),
     ).toThrow(/INTAKE_TOKEN_SECRET is required in production/);
 
-    // The message has to tell the owner what to DO — a boot failure nobody can
-    // action is just an outage.
-    expect(INTAKE_SECRET_MISSING_MESSAGE).toContain("openssl rand -hex 32");
-    expect(INTAKE_SECRET_MISSING_MESSAGE).toContain("Vercel");
-
-    // Positive control: with the secret set the server comes up.
+    // With the intake secret set, the next missing guard — Supabase — fires,
+    // because an unconfigured production would serve sample data as real.
     expect(() =>
       assertProductionEnv({
         NODE_ENV: "production",
         INTAKE_TOKEN_SECRET: "x".repeat(64),
+      } as NodeJS.ProcessEnv),
+    ).toThrow(/Supabase is not configured in production/);
+
+    // The messages have to tell the owner what to DO — a boot failure nobody
+    // can action is just an outage.
+    expect(INTAKE_SECRET_MISSING_MESSAGE).toContain("openssl rand -hex 32");
+    expect(INTAKE_SECRET_MISSING_MESSAGE).toContain("Vercel");
+    expect(SUPABASE_MISSING_MESSAGE).toContain("NEXT_PUBLIC_SUPABASE_URL");
+    expect(SUPABASE_MISSING_MESSAGE).toContain("Vercel");
+
+    // Positive control: fully configured, the server comes up.
+    expect(() =>
+      assertProductionEnv({
+        NODE_ENV: "production",
+        INTAKE_TOKEN_SECRET: "x".repeat(64),
+        NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
       } as NodeJS.ProcessEnv),
     ).not.toThrow();
   });
@@ -103,7 +174,9 @@ describe("assertProductionEnv", () => {
     ).not.toThrow();
   });
 
-  it("declares INTAKE_TOKEN_SECRET as production-required", () => {
+  it("declares the guard variables as production-required", () => {
     expect(PRODUCTION_REQUIRED_ENV).toContain("INTAKE_TOKEN_SECRET");
+    expect(PRODUCTION_REQUIRED_ENV).toContain("NEXT_PUBLIC_SUPABASE_URL");
+    expect(PRODUCTION_REQUIRED_ENV).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY");
   });
 });
