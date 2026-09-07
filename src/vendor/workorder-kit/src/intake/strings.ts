@@ -37,6 +37,8 @@ export interface IntakeStrings {
   photoUploading: string;
   photoError: string;
   removePhotoLabel: string;
+  draftRestored: string;
+  draftClear: string;
   categories: Record<string, string>;
 }
 
@@ -74,6 +76,8 @@ export const STRINGS: Record<LangCode, IntakeStrings> = {
     photoUploading: "Uploading…",
     photoError: "Upload failed",
     removePhotoLabel: "Remove photo",
+    draftRestored: "We kept what you typed last time.",
+    draftClear: "Start over",
     categories: {
       "no-heat": "No heat",
       "no-hot-water": "No hot water",
@@ -122,6 +126,8 @@ export const STRINGS: Record<LangCode, IntakeStrings> = {
     photoUploading: "Subiendo…",
     photoError: "Error al subir",
     removePhotoLabel: "Quitar foto",
+    draftRestored: "Guardamos lo que escribió la última vez.",
+    draftClear: "Empezar de nuevo",
     categories: {
       "no-heat": "Sin calefacción",
       "no-hot-water": "Sin agua caliente",
@@ -170,6 +176,8 @@ export const STRINGS: Record<LangCode, IntakeStrings> = {
     photoUploading: "上传中…",
     photoError: "上传失败",
     removePhotoLabel: "移除照片",
+    draftRestored: "已保留您上次输入的内容。",
+    draftClear: "重新开始",
     categories: {
       "no-heat": "没有暖气",
       "no-hot-water": "没有热水",
@@ -218,6 +226,8 @@ export const STRINGS: Record<LangCode, IntakeStrings> = {
     photoUploading: "Загрузка…",
     photoError: "Ошибка загрузки",
     removePhotoLabel: "Удалить фото",
+    draftRestored: "Мы сохранили то, что вы ввели в прошлый раз.",
+    draftClear: "Начать заново",
     categories: {
       "no-heat": "Нет отопления",
       "no-hot-water": "Нет горячей воды",

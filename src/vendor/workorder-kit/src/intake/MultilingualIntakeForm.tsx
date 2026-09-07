@@ -12,6 +12,11 @@ import {
 import { useVoiceCapture } from "./useVoiceCapture";
 import { IntakeConfirmation } from "./IntakeConfirmation";
 import { compressImage } from "./compressImage";
+import {
+  clearIntakeDraft,
+  loadIntakeDraft,
+  saveIntakeDraft,
+} from "./draft";
 
 // =============================================================================
 //  Multilingual tenant intake form (shared)
@@ -45,6 +50,11 @@ export interface MultilingualIntakeFormProps {
   uploadPhoto?: (file: File) => Promise<string>;
   /** Pin a language; if omitted, auto-detects from the browser. */
   initialLang?: LangCode;
+  /** localStorage key for draft autosave. When set, typed text survives the
+   *  OS killing the backgrounded tab and comes back behind a visible banner;
+   *  a successful submit clears it. Scope the key per building (e.g.
+   *  `myapp:intake-draft:v1:${building.id}`). Omit for no persistence. */
+  draftKey?: string;
 }
 
 const fieldClass =
@@ -56,6 +66,7 @@ export function MultilingualIntakeForm({
   trackUrlFor,
   uploadPhoto,
   initialLang,
+  draftKey,
 }: MultilingualIntakeFormProps) {
   const [lang, setLang] = useState<LangCode>(initialLang ?? "en");
   const t = STRINGS[lang];
@@ -95,6 +106,63 @@ export function MultilingualIntakeForm({
   useEffect(() => {
     if (!initialLang) setLang(detectInitialLanguage());
   }, [initialLang]);
+
+  // Draft autosave (opt-in via draftKey): restore once on mount behind a
+  // visible banner, re-save on every field change, clear on successful
+  // submit. Photos aren't persisted — picked files can't be stashed, and
+  // their uploads are reaped server-side on the same 48h clock anyway.
+  const [draftRestored, setDraftRestored] = useState(false);
+  const hydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    if (!draftKey) return;
+    try {
+      const draft = loadIntakeDraft(window.localStorage, draftKey);
+      if (!draft) return;
+      setName(draft.name);
+      setApt(draft.apt);
+      setPhone(draft.phone);
+      setEmail(draft.email);
+      setCategory(draft.category);
+      setDescription(draft.description);
+      setDraftRestored(true);
+    } catch {
+      // Storage unavailable (private mode, blocked site data) — start fresh.
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!hydratedRef.current || !draftKey) return;
+    try {
+      saveIntakeDraft(window.localStorage, draftKey, {
+        name,
+        apt,
+        phone,
+        email,
+        category,
+        description,
+      });
+    } catch {
+      // Best-effort — never let a storage failure break typing.
+    }
+  }, [draftKey, name, apt, phone, email, category, description]);
+
+  function discardDraft() {
+    if (draftKey) {
+      try {
+        clearIntakeDraft(window.localStorage, draftKey);
+      } catch {}
+    }
+    setName("");
+    setApt("");
+    setPhone("");
+    setEmail("");
+    setCategory("");
+    setDescription("");
+    setDraftRestored(false);
+  }
 
   function toggleVoice() {
     if (voice.listening) {
@@ -183,6 +251,11 @@ export function MultilingualIntakeForm({
       setSubmitting(false);
       return;
     }
+    if (draftKey) {
+      try {
+        clearIntakeDraft(window.localStorage, draftKey);
+      } catch {}
+    }
     setTicket(res.ticket_number ?? "");
   }
 
@@ -233,6 +306,18 @@ export function MultilingualIntakeForm({
       </div>
 
       <form className="space-y-3" lang={lang} onSubmit={handleSubmit}>
+        {draftRestored && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-zinc-700">
+            <span>{t.draftRestored}</span>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="whitespace-nowrap font-medium text-blue-700 hover:underline"
+            >
+              {t.draftClear}
+            </button>
+          </div>
+        )}
         <Field label={t.yourName}>
           <input value={name} onChange={(e) => setName(e.target.value)} required className={fieldClass} />
         </Field>

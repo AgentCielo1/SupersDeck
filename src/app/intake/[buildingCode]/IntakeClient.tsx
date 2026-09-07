@@ -74,6 +74,7 @@ export default function IntakeClient({
   return (
     <MultilingualIntakeForm
       building={{ id: building.id, name: building.name, address: building.address }}
+      draftKey={`supersdeck:intake-draft:v1:${building.id}`}
       trackUrlFor={(ticket) => `${publicBaseUrl()}/track/${ticket}`}
       uploadPhoto={async (file) => {
         const fd = new FormData();
