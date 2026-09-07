@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
+import { resolvePrefillBuilding } from "@/lib/wo-prefill";
 import VoiceNoteRecorder from "@/components/VoiceNoteRecorder";
 import { useVoiceCapture } from "@workorder/kit/intake/useVoiceCapture";
 import type { LangCode } from "@workorder/kit/intake/strings";
@@ -29,9 +30,29 @@ const CATEGORIES = [
 ];
 
 export default function NewWorkOrderPage() {
+  // useSearchParams needs a Suspense boundary to prerender in Next 14.
+  return (
+    <Suspense fallback={null}>
+      <NewWorkOrderForm />
+    </Suspense>
+  );
+}
+
+function NewWorkOrderForm() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Prefill from the tenant directory ("New WO" on a row) — see lib/wo-prefill.
+  const params = useSearchParams();
+  const prefillBuildingId = resolvePrefillBuilding(
+    SAMPLE_BUILDINGS,
+    params.get("building_id"),
+    params.get("building"),
+  );
+  const prefillUnit = params.get("unit_label") ?? "";
+  const prefillReporter = params.get("reporter_name") ?? "";
+  const prefillPhone = params.get("reporter_phone") ?? "";
 
   // Speak-or-type: dictate into Title or Description via the mic (Web Speech).
   const [title, setTitle] = useState("");
@@ -130,7 +151,12 @@ export default function NewWorkOrderPage() {
         className="space-y-4 rounded-xl2 border border-ink-200 bg-white p-5"
       >
         <Field label="Building">
-          <select name="building_id" required className={fieldClass}>
+          <select
+            name="building_id"
+            required
+            defaultValue={prefillBuildingId}
+            className={fieldClass}
+          >
             {SAMPLE_BUILDINGS.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name} — {b.address}
@@ -139,7 +165,12 @@ export default function NewWorkOrderPage() {
           </select>
         </Field>
         <Field label="Unit (leave blank if common area)">
-          <input name="unit_label" placeholder="e.g. 7C" className={fieldClass} />
+          <input
+            name="unit_label"
+            defaultValue={prefillUnit}
+            placeholder="e.g. 7C"
+            className={fieldClass}
+          />
         </Field>
         {voice.supported && (
           <Field label="🎤 Dictation language — spoken text is auto-translated to English on save">
@@ -246,10 +277,19 @@ export default function NewWorkOrderPage() {
           </Field>
         </div>
         <Field label="Reporter name">
-          <input name="reporter_name" required className={fieldClass} />
+          <input
+            name="reporter_name"
+            required
+            defaultValue={prefillReporter}
+            className={fieldClass}
+          />
         </Field>
         <Field label="Reporter phone (optional)">
-          <input name="reporter_phone" className={fieldClass} />
+          <input
+            name="reporter_phone"
+            defaultValue={prefillPhone}
+            className={fieldClass}
+          />
         </Field>
 
         {error && (
