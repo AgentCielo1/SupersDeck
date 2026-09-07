@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { newWorkOrderUrl } from "@/lib/wo-prefill";
 
 export type DirRow = {
   id: string;
@@ -288,7 +290,14 @@ export default function TenantDirectory({
                   </td>
                   <td className="px-3 py-2 text-xs text-ink-600">{r.leaseEnd ? new Date(r.leaseEnd).toLocaleDateString() : "—"}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-right text-xs">
-                    <button type="button" onClick={() => startEdit(r)} className="text-brand hover:underline">Edit</button>
+                    <Link
+                      href={newWorkOrderUrl(r)}
+                      title={`New work order for ${r.building} ${r.apt}${r.tenant ? ` (${r.tenant})` : ""}`}
+                      className="font-medium text-brand hover:underline"
+                    >
+                      + New WO
+                    </Link>
+                    <button type="button" onClick={() => startEdit(r)} className="ml-3 text-brand hover:underline">Edit</button>
                     {(r.tenant || r.occupied) && (
                       <button type="button" onClick={() => vacate(r)} disabled={busy} className="ml-3 text-ink-400 hover:text-warn-800">Vacate</button>
                     )}
