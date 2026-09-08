@@ -94,6 +94,25 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (!data) {
+    // Under RLS a denied UPDATE just matches 0 rows — indistinguishable from a
+    // missing row unless we look again. A row we can still read but couldn't
+    // update means a database policy blocked the write; reporting that as
+    // "Unit not found" sent us hunting the wrong bug (2026-09-08).
+    const { data: visible } = await supabase
+      .from("units")
+      .select("id")
+      .eq("id", params.id)
+      .maybeSingle();
+    if (visible) {
+      return NextResponse.json(
+        {
+          error:
+            "The database's security policy blocked this update. " +
+            "Run supabase/fix-units-update-policy.sql against the project, then retry.",
+        },
+        { status: 403 },
+      );
+    }
     return NextResponse.json({ error: "Unit not found" }, { status: 404 });
   }
 
