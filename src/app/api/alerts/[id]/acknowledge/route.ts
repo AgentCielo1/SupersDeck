@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
+import { parseJson } from "@/lib/validation";
+import { AckSchema } from "@/lib/alert-schemas";
 
 // =============================================================================
 //  POST /api/alerts/[id]/acknowledge — "I'm on it"
@@ -8,6 +10,11 @@ import { getCurrentUserProfile } from "@/lib/supabase-server";
 //  Any signed-in staffer can acknowledge. Idempotent: the (alert_id,
 //  acknowledged_by) unique constraint means a double-tap is a no-op. An
 //  optional note is stored / updated.
+//
+//  The note is free text a staffer types on their phone and it is written
+//  straight to the DB, so it goes through the schema like every other body.
+//  A body is now REQUIRED (AlertAckButton always sends at least `{}`); a
+//  bodyless POST gets the standard 400 instead of being silently accepted.
 // =============================================================================
 
 export const dynamic = "force-dynamic";
@@ -20,13 +27,10 @@ export async function POST(
   if (!me) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
   const alertId = params.id;
-  let note: string | null = null;
-  try {
-    const body = (await request.json()) as { note?: string };
-    note = body.note?.trim() ? body.note.trim() : null;
-  } catch {
-    // empty body is fine
-  }
+  const parsed = await parseJson(request, AckSchema);
+  if (parsed.response) return parsed.response;
+  // optStr already trimmed it; "" and null both mean "no note".
+  const note = parsed.data.note ? parsed.data.note : null;
 
   const supabase = createSupabaseServerClient();
   if (!supabase) {

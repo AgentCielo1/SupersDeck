@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import type Stripe from "stripe";
 import { getStripe, mapStripeStatus } from "@/lib/stripe";
 import { getServerSupabase } from "@/lib/supabase";
@@ -15,14 +16,62 @@ import { getServerSupabase } from "@/lib/supabase";
 //  events never double-apply.
 //
 //  Always returns 200 for verified-and-handled (or verified-and-ignored)
-//  events so Stripe stops retrying; only signature failures (400) and
-//  unexpected processing errors (500) are non-200.
+//  events so Stripe stops retrying; only signature failures (400), payload
+//  shape failures (400) and unexpected processing errors (500) are non-200.
+//
+//  SIGNATURE vs SCHEMA — both, in that order, and never the other way round.
+//  constructEvent() is the authenticity control: it HMACs the raw bytes, so a
+//  body that survives it provably came from Stripe. Nothing is parsed before
+//  it sees the raw text. But authenticity is not shape: Stripe versions its
+//  API, and the fields this handler reads off event.data.object decide whether
+//  an org is marked active, past_due or cancelled. If `status` ever went
+//  missing, mapStripeStatus() would fall through its default and silently
+//  downgrade a paying customer to "free". So a verified event is additionally
+//  checked against the narrow shape we actually read — a contract with Stripe,
+//  asserted rather than assumed.
+//
+//  The shape check runs BEFORE the billing_events claim on purpose. Claiming
+//  first would burn the event id, and the retry would then short-circuit as a
+//  duplicate — a shape break would be swallowed exactly once and lost. Failing
+//  before the claim leaves the event unacknowledged and visible in Stripe's own
+//  dashboard, which is where a billing break belongs.
 // =============================================================================
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type SupabaseLike = NonNullable<ReturnType<typeof getServerSupabase>>;
+
+// ---------------------------------------------------------------------------
+//  Payload contracts — ONLY the fields this handler reads.
+// ---------------------------------------------------------------------------
+//  Deliberately loose objects: Stripe's payloads carry dozens of fields we do
+//  not touch, and the verified object is passed on unchanged. This asserts the
+//  shape, it does not trim it.
+const CustomerRef = z.union([z.string(), z.looseObject({ id: z.string() })]).nullish();
+
+const SubscriptionPayload = z.looseObject({
+  id: z.string(),
+  status: z.string(),
+  customer: CustomerRef,
+  metadata: z.record(z.string(), z.string()).nullish(),
+  items: z
+    .looseObject({
+      data: z.array(z.looseObject({ current_period_end: z.number().nullish() })).optional(),
+    })
+    .nullish(),
+});
+
+const InvoicePayload = z.looseObject({ customer: CustomerRef });
+
+/** The shape contract for the event types we act on. Types we only record
+ *  (the `default` branch below) read no fields, so they have none. */
+const PAYLOAD_CONTRACTS: Record<string, z.ZodType> = {
+  "customer.subscription.created": SubscriptionPayload,
+  "customer.subscription.updated": SubscriptionPayload,
+  "customer.subscription.deleted": SubscriptionPayload,
+  "invoice.payment_failed": InvoicePayload,
+};
 
 /** In Stripe API 2025-x / SDK v22, current_period_end moved off the
  *  Subscription object onto each subscription item. All items in a subscription
@@ -96,6 +145,23 @@ export async function POST(request: Request) {
     );
   }
 
+  // 2. Shape: a verified event still has to match the fields we read off it.
+  //    Before the claim, so a shape break is retried and stays visible.
+  const contract = PAYLOAD_CONTRACTS[event.type];
+  if (contract) {
+    const shape = contract.safeParse(event.data.object);
+    if (!shape.success) {
+      const details = shape.error.issues
+        .map((i) => `${i.path.join(".")}: ${i.message}`)
+        .join("; ");
+      console.error("[billing/webhook] payload shape", event.type, event.id, details);
+      return NextResponse.json(
+        { error: `Unexpected ${event.type} payload shape: ${details}` },
+        { status: 400 }
+      );
+    }
+  }
+
   const supabase = getServerSupabase();
   if (!supabase) {
     return NextResponse.json(
@@ -104,7 +170,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // 2. Idempotency: claim this event.id (PRIMARY KEY). A duplicate delivery
+  // 3. Idempotency: claim this event.id (PRIMARY KEY). A duplicate delivery
   //    fails the unique constraint and we short-circuit without re-applying.
   const { error: claimError } = await supabase
     .from("billing_events")
@@ -124,7 +190,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // 3. Apply the event.
+  // 4. Apply the event.
   try {
     let orgId: string | null = null;
 
@@ -179,7 +245,7 @@ export async function POST(request: Request) {
         break;
     }
 
-    // 4. Backfill the resolved org on the event row for traceability.
+    // 5. Backfill the resolved org on the event row for traceability.
     if (orgId) {
       await supabase
         .from("billing_events")

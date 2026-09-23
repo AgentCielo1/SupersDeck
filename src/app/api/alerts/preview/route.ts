@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
-import { previewRecipients, TIERS, type AlertTier } from "@/lib/alerts";
+import { previewRecipients } from "@/lib/alerts";
+import { parseJson } from "@/lib/validation";
+import { AlertTargetingSchema } from "@/lib/alert-schemas";
 
 // =============================================================================
 //  POST /api/alerts/preview — "This will notify X residents and Y staff"
@@ -21,23 +23,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const tier = String(body.tier ?? "") as AlertTier;
-  if (!TIERS[tier]) {
-    return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
-  }
-  const building_ids = Array.isArray(body.building_ids)
-    ? (body.building_ids as unknown[]).map((b) => String(b))
-    : [];
-  const unit_ids = Array.isArray(body.unit_ids)
-    ? (body.unit_ids as unknown[]).map((u) => String(u))
-    : null;
+  // Same schema as POST /api/alerts, so the preview panel can never describe a
+  // different audience from the one the send would actually reach.
+  const parsed = await parseJson(request, AlertTargetingSchema);
+  if (parsed.response) return parsed.response;
+  const { tier, building_ids } = parsed.data;
+  const unit_ids = parsed.data.unit_ids ?? null;
 
   const preview = await previewRecipients({
     orgId: me.org_id ?? DEFAULT_ORG_ID,

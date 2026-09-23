@@ -112,14 +112,66 @@ const apiRoutes = files.filter((f) => /\/app\/api\/.*route\.(ts|js)x?$/.test(f))
 // request.json() internally. Counting the helper is essential: once a route adopts
 // parseJson the raw call disappears, so without this the validated routes would stop
 // looking like body boundaries and the metric would silently collapse to a false pass.
-const readsBody = (s) => /\b(request|req)\.(json|formData|text)\s*\(/.test(s) || /\bparseJson\s*\(/.test(s);
-// A boundary "validates" if untrusted input flows through a schema before use.
-// Precise tokens (parseJson helper / safeParse / z.object|array|enum) — not a bare
-// parse( which would false-match JSON.parse / Date.parse.
+const readsJsonBody = (s) => /\b(request|req)\.(json|text)\s*\(/.test(s) || /\bparseJson\s*\(/.test(s);
+const readsMultipart = (s) => /\b(request|req)\.formData\s*\(/.test(s);
+const readsBody = (s) => readsJsonBody(s) || readsMultipart(s);
+// A JSON/text boundary "validates" if untrusted input flows through a schema
+// before use. Precise tokens (parseJson helper / safeParse / z.object|array|enum)
+// — not a bare parse( which would false-match JSON.parse / Date.parse.
 const validates = (s) => /\b(parseJson|safeParse|z\.(object|array|enum|coerce|string|number)|valibot|yup)\b/.test(s);
+
+// A MULTIPART boundary is judged differently, because a JSON body schema cannot
+// see inside a File and a schema token in such a route would be theatre. What
+// has to be true instead: every value pulled out of the FormData is consumed
+// through a guard. Each `<form>.get()/.getAll()` must be either
+//   (a) an argument to a named guard — resolveCloudPath(form.get('folder')) —
+//       where the callee is NOT a bare coercion (String/Number/… turn hostile
+//       input into a plausible-looking value instead of rejecting it), or
+//   (b) instance-checked as a File, inline or on the variable it lands in.
+// Anything else is a raw form value heading for a write, and is reported with
+// the offending line so the failure is actionable rather than cryptic.
+const COERCION_ONLY = /^(String|Number|Boolean|parseInt|parseFloat|Array|Object|JSON)$/;
+function unguardedFormReads(s) {
+  const ids = [...s.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*(?:await\s+)?(?:request|req)\.formData\s*\(/g)].map((m) => m[1]);
+  // Also catch `let form; try { form = await request.formData() }`, where the
+  // binding and the declaration are on different lines.
+  ids.push(...[...s.matchAll(/\b([A-Za-z_$][\w$]*)\s*=\s*await\s+(?:request|req)\.formData\s*\(/g)].map((m) => m[1]));
+  const forms = [...new Set(ids)];
+  if (forms.length === 0) return ['(FormData is read but never bound to a variable — cannot prove its values are guarded)'];
+  const offenders = [];
+  for (const line of s.split('\n')) {
+    for (const form of forms) {
+      const re = new RegExp(`\\b${form}\\.(?:get|getAll)\\s*\\(`, 'g');
+      let m;
+      while ((m = re.exec(line)) !== null) {
+        const prefix = line.slice(0, m.index);
+        const wrapper = prefix.match(/([A-Za-z_$][\w$]*)\s*\(\s*$/);
+        if (wrapper && !COERCION_ONLY.test(wrapper[1])) continue; // (a) named guard
+        if (/\binstanceof\s+File\b|\bis\s+File\b/.test(line)) continue; // (b) inline File check
+        const assigned = line.match(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=/);
+        if (assigned && new RegExp(`\\b${assigned[1]}\\s+instanceof\\s+File\\b`).test(s)) continue; // (b) checked later
+        offenders.push(line.trim());
+      }
+    }
+  }
+  return offenders;
+}
+
 const serverActions = files.filter((f) => /^['"]use server['"]/m.test(body(f)));
 const writeBoundaries = [...new Set([...apiRoutes.filter((f) => readsBody(body(f))), ...serverActions])];
-const unvalidated = writeBoundaries.filter((f) => !validates(body(f)));
+const formOffenders = new Map();
+const unvalidated = writeBoundaries.filter((f) => {
+  const src = body(f);
+  if (readsJsonBody(src) && !validates(src)) return true;
+  if (readsMultipart(src)) {
+    const offenders = unguardedFormReads(src);
+    if (offenders.length) {
+      formOffenders.set(f, offenders);
+      return true;
+    }
+  }
+  return false;
+});
 if (writeBoundaries.length) {
   const n = writeBoundaries.length;
   unvalidated.length === 0
@@ -129,6 +181,9 @@ if (writeBoundaries.length) {
           unvalidated.slice(0, 8).map(short).join(', ') +
           (unvalidated.length > 8 ? ` …+${unvalidated.length - 8}` : ''),
       );
+  for (const [f, offenders] of formOffenders) {
+    info(`  ${short(f)} — unguarded form value(s): ${offenders.slice(0, 3).join(' | ')}`);
+  }
 }
 // Advisory: GET routes reading searchParams without a schema (lower risk, not gated).
 const searchParamOnly = apiRoutes.filter((f) => /searchParams/.test(body(f)) && !readsBody(body(f)) && !validates(body(f)));

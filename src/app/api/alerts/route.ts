@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getCurrentUserProfile } from "@/lib/supabase-server";
-import { dispatchAlert, TIERS, type AlertTier } from "@/lib/alerts";
+import { dispatchAlert } from "@/lib/alerts";
+import { parseJson } from "@/lib/validation";
+import { CreateAlertSchema } from "@/lib/alert-schemas";
 
 // =============================================================================
 //  POST /api/alerts — create an alert and fan it out across its tier's channels
@@ -27,28 +29,13 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const parsed = await parseJson(request, CreateAlertSchema);
+  if (parsed.response) return parsed.response;
+  const { tier, title, message, building_ids } = parsed.data;
+  const unit_ids = parsed.data.unit_ids ?? null;
 
-  const tier = String(body.tier ?? "") as AlertTier;
-  const title = String(body.title ?? "").trim();
-  const message = String(body.message ?? "").trim();
-  const building_ids = Array.isArray(body.building_ids)
-    ? (body.building_ids as unknown[]).map((b) => String(b))
-    : [];
-  const unit_ids = Array.isArray(body.unit_ids)
-    ? (body.unit_ids as unknown[]).map((u) => String(u))
-    : null;
-
-  if (!TIERS[tier]) {
-    return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
-  }
-  if (!title) return NextResponse.json({ error: "Title is required" }, { status: 400 });
-  if (!message) return NextResponse.json({ error: "Message is required" }, { status: 400 });
+  // Kept as an explicit check (rather than a schema .min(1)) so the composer
+  // still shows this exact sentence when nothing is selected.
   if (building_ids.length === 0) {
     return NextResponse.json({ error: "Select at least one building" }, { status: 400 });
   }
