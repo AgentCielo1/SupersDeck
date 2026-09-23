@@ -86,15 +86,32 @@ export interface DispatchSummary {
 // ----------------------------------------------------------------------------
 //  Recipient resolution
 // ----------------------------------------------------------------------------
+/**
+ * A recipient query that errors resolved to `data ?? []` — an empty recipient
+ * list. Dispatch then reported a green "✓ Alert sent to 0 recipients" for a
+ * no-heat broadcast nobody received. An empty list is a legitimate answer AND
+ * an error signal, which is the BUG-001 shape. Every recipient read now throws
+ * instead, so no DispatchSummary can be built on an unread recipient set.
+ */
+function recipientFail(op: string, error: { message: string }): never {
+  console.error(`[alerts] ${op}:`, error.message);
+  throw new Error(
+    `Could not resolve ${op} for this alert (${error.message}). ` +
+      `Refusing to report a send that may have reached nobody.`,
+  );
+}
+
 async function loadBuildingNames(
   supabase: SupabaseClient,
   buildingIds: string[]
 ): Promise<Record<string, string>> {
   if (buildingIds.length === 0) return {};
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("buildings")
     .select("id, name")
     .in("id", buildingIds);
+  // Falling back to raw ids here would put a UUID in a tenant life-safety SMS.
+  if (error) recipientFail("loadBuildingNames", error);
   return Object.fromEntries((data ?? []).map((b: any) => [b.id, b.name as string]));
 }
 
@@ -104,11 +121,12 @@ async function resolveStaff(
   alert: AlertRow
 ): Promise<StaffRow[]> {
   const cfg = TIERS[alert.tier];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("id, email, full_name, role, phone_number, push_consent, sms_consent")
     .eq("org_id", alert.org_id)
     .in("role", cfg.staffRoles);
+  if (error) recipientFail("resolveStaff", error);
   return (data ?? []) as StaffRow[];
 }
 
@@ -127,7 +145,8 @@ async function resolveResidents(
   if (alert.unit_ids && alert.unit_ids.length > 0) {
     q = q.in("id", alert.unit_ids);
   }
-  const { data } = await q;
+  const { data, error } = await q;
+  if (error) recipientFail("resolveResidents", error);
   return ((data ?? []) as ResidentRow[]).filter((u) => Boolean(u.tenant_phone));
 }
 
@@ -136,11 +155,13 @@ export async function countExpectedSupers(
   supabase: SupabaseClient,
   orgId: string
 ): Promise<number> {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("profiles")
     .select("id", { count: "exact", head: true })
     .eq("org_id", orgId)
     .eq("role", "super");
+  // `count ?? 0` on an error reads as "nobody has to acknowledge".
+  if (error) recipientFail("countExpectedSupers", error);
   return count ?? 0;
 }
 
@@ -296,13 +317,15 @@ export async function dispatchAlert(
   };
   if (!supabase) return empty;
 
-  const { data: alertData } = await supabase
+  const { data: alertData, error: alertError } = await supabase
     .from("alerts")
     .select(
       "id, org_id, tier, title, message, building_ids, unit_ids, status, created_at, escalated_at, owner_notified_at"
     )
     .eq("id", alertId)
     .maybeSingle();
+  // An unreadable alert row is not "an alert with no recipients".
+  if (alertError) recipientFail("dispatchAlert alert row", alertError);
   if (!alertData) return empty;
   const alert = alertData as AlertRow;
   const cfg = TIERS[alert.tier];

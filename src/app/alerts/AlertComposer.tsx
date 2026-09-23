@@ -35,6 +35,8 @@ interface PreviewResult {
 
 interface SendResult {
   id: string;
+  // null = the alert row was created but dispatch could not be confirmed
+  // (e.g. a recipient query failed). NEVER render that as a successful send.
   summary: {
     tier: AlertTier;
     channels: string[];
@@ -43,7 +45,7 @@ interface SendResult {
     push: { sent: number; failed: number };
     email: { sent: number; failed: number };
     sms: { sent: number; failed: number };
-  };
+  } | null;
 }
 
 const TIER_ORDER: AlertTier[] = ["routine", "urgent", "emergency"];
@@ -193,6 +195,31 @@ export default function AlertComposer({
   // ---- Confirmation screen ----
   if (sent) {
     const s = sent.summary;
+    // The alert row exists but dispatch never returned a summary — a recipient
+    // query failed. Saying "sent to 0 recipients" here would be the lie.
+    if (!s) {
+      return (
+        <div className="rounded-xl2 border border-danger-600/40 bg-danger-50 p-6">
+          <div className="text-lg font-semibold text-danger-800">
+            Alert saved — delivery NOT confirmed
+          </div>
+          <p className="mt-1 text-sm text-danger-800">
+            The alert was created, but the system could not work out who it
+            should reach, so it cannot tell you whether anyone was notified.
+            <strong> Assume nobody was.</strong> Notify by phone or in person,
+            then open the alert to retry.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Link
+              href={`/alerts/${sent.id}`}
+              className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-800"
+            >
+              View alert
+            </Link>
+          </div>
+        </div>
+      );
+    }
     const total = s.staffCount + s.residentCount;
     return (
       <div className="rounded-xl2 border border-ok-600/30 bg-white p-6">

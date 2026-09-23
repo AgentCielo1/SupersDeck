@@ -12,8 +12,10 @@ export interface ActiveAlertSummary {
   tier: AlertTier;
   title: string;
   created_at: string;
-  ackCount: number;
-  expectedSuperCount: number;
+  /** null = the acknowledgement read failed. Never render it as 0. */
+  ackCount: number | null;
+  /** null = the expected-super read failed. Never render it as 0. */
+  expectedSuperCount: number | null;
   ackedByMe: boolean;
 }
 
@@ -65,8 +67,15 @@ export default function ActiveAlertsBanner({
             <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
               {requiresAck && (
                 <span className="text-xs opacity-90">
-                  {a.ackCount} of {a.expectedSuperCount} super
-                  {a.expectedSuperCount === 1 ? "" : "s"} acknowledged
+                  {a.ackCount === null || a.expectedSuperCount === null ? (
+                    // A failed count read must not read as "0 of 0 acknowledged".
+                    <>Acknowledgement count unavailable</>
+                  ) : (
+                    <>
+                      {a.ackCount} of {a.expectedSuperCount} super
+                      {a.expectedSuperCount === 1 ? "" : "s"} acknowledged
+                    </>
+                  )}
                 </span>
               )}
               <div className="ml-auto flex items-center gap-3">

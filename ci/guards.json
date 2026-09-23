@@ -49,6 +49,62 @@
       "find": "    .order(\"reported_at\", { ascending: false })\n    .limit(DEFAULT_LIMIT);",
       "replace": "    .order(\"reported_at\", { ascending: false });",
       "expect": "caps the work-orders listing"
+    },
+    {
+      "name": "db: the honesty guard is BEHAVIOURAL, not a grep (BUG-224)",
+      "file": "src/lib/db.ts",
+      "find": "  if (error) dbFail(\"fetchBuildings\", error);",
+      "replace": "  if (error) return (SAMPLE_BUILDINGS as Building[]);",
+      "expect": "rejects on a database error instead of resolving to rows"
+    },
+    {
+      "name": "alerts-layer: a failed alerts read must not render as 'no alerts'",
+      "file": "src/lib/alerts-layer.ts",
+      "find": "    if (error) {\n      console.error(\"[alerts-layer] active alerts read failed:\", error.message);\n      return {\n        ok: false,\n        failure: { kind: \"alerts_read_failed\", detail: error.message },\n      };\n    }",
+      "replace": "    if (error) return { ok: true, banner: [], overlay: [] };",
+      "expect": "returns ok:false when the active-alerts read errors"
+    },
+    {
+      "name": "alerts-layer: a failed ack read must not render as '0 of 0 acknowledged'",
+      "file": "src/lib/alerts-layer.ts",
+      "find": "        ackCount: acksOk ? rowAcks.length : null,",
+      "replace": "        ackCount: rowAcks.length,",
+      "expect": "a failed acknowledgement read reports UNKNOWN counts"
+    },
+    {
+      "name": "alerts: a failed STAFF query must not become a send to 0 recipients",
+      "file": "src/lib/alerts.ts",
+      "find": "  if (error) recipientFail(\"resolveStaff\", error);",
+      "replace": "  // guard removed",
+      "expect": "rejects when the STAFF query errors"
+    },
+    {
+      "name": "alerts: a failed RESIDENT query must not become a send to 0 recipients",
+      "file": "src/lib/alerts.ts",
+      "find": "  if (error) recipientFail(\"resolveResidents\", error);",
+      "replace": "  // guard removed",
+      "expect": "rejects when the RESIDENT query errors"
+    },
+    {
+      "name": "alerts: an unreadable alert row must not dispatch an empty summary",
+      "file": "src/lib/alerts.ts",
+      "find": "  if (alertError) recipientFail(\"dispatchAlert alert row\", alertError);",
+      "replace": "  // guard removed",
+      "expect": "rejects when the alert row itself cannot be read"
+    },
+    {
+      "name": "alerts: a failed super count must not answer 0 ('nobody must ack')",
+      "file": "src/lib/alerts.ts",
+      "find": "  if (error) recipientFail(\"countExpectedSupers\", error);",
+      "replace": "  // guard removed",
+      "expect": "countExpectedSupers rejects rather than answering 0"
+    },
+    {
+      "name": "owner-report: a failed violations query must not assert '0 violations'",
+      "file": "src/lib/owner-report.ts",
+      "find": "  reportFailIfError(\"HPD violations\", violationsResult.error);",
+      "replace": "  // guard removed",
+      "expect": "rejects when the VIOLATIONS query errors"
     }
   ]
 }

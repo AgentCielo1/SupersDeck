@@ -63,6 +63,23 @@ export type OwnerReportData = {
   periodLabel: string;
 };
 
+/**
+ * A section of the owner report whose query failed cannot be reported as
+ * empty — "0 violations" is a claim the managing agent acts on. Throws so the
+ * report is never assembled from rows that were never read.
+ */
+function reportFailIfError(
+  section: string,
+  error: { message: string } | null
+): void {
+  if (!error) return;
+  console.error(`[owner-report] ${section}:`, error.message);
+  throw new Error(
+    `Could not read ${section} for the owner report (${error.message}). ` +
+      `Refusing to report zero for a section that was never read.`,
+  );
+}
+
 export async function gatherOwnerReportData(
   supabase: SupabaseClient,
   periodDays = 30
@@ -113,6 +130,18 @@ export async function gatherOwnerReportData(
       .from("compliance_items")
       .select("building_id, template_id, last_completed, vendor_id, notes"),
   ]);
+
+  // `data ?? []` on a failed query is the BUG-001 shape in a document the
+  // managing agent reads as fact: a violations query that ERRORED rendered as
+  // "No new HPD violations posted in the last 30 days." A report that cannot
+  // be built from real rows must not be built at all — both callers (the cron
+  // and the in-app preview) surface the throw honestly rather than sending or
+  // displaying a report whose zeroes are fiction.
+  reportFailIfError("buildings", bldgsResult.error);
+  reportFailIfError("work orders", wosResult.error);
+  reportFailIfError("HPD violations", violationsResult.error);
+  reportFailIfError("certifications", certsResult.error);
+  reportFailIfError("compliance items", completedComplianceResult.error);
 
   const buildings = (bldgsResult.data ?? []) as BuildingRow[];
   const wos = (wosResult.data ?? []) as WoRow[];
