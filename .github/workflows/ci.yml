@@ -38,6 +38,12 @@ jobs:
       - name: Unit tests
         run: npm run test
 
+      - name: Verify building identifiers against NYC records
+        # Fails the build if a stored BIN/BBL contradicts the city's HPD/DOB
+        # datasets; an API outage reports UNVERIFIED and passes (the runtime
+        # cross-check on /violations still guards production).
+        run: node scripts/verify-building-identifiers.mjs
+
       - name: Build
         run: npm run build
         env:
