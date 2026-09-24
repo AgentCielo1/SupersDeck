@@ -18,18 +18,18 @@ export default function RefreshViolationsButton() {
       setResult(`Error: ${data.error ?? "unknown"}`);
       return;
     }
-    const total = Object.values(data.summary ?? {}).reduce(
-      (s: number, v: any) => s + (v?.fetched ?? 0),
-      0
-    );
-    const totalNew = Object.values(data.summary ?? {}).reduce(
-      (s: number, v: any) => s + (v?.new ?? 0),
-      0
-    );
+    const count = (obj: unknown, key: "fetched" | "new") =>
+      Object.values((obj ?? {}) as Record<string, any>).reduce(
+        (s: number, v: any) => s + (v?.[key] ?? 0),
+        0
+      );
+    // HPD per-building counts + OATH/ECB per-lot counts, one honest line.
+    const total = count(data.summary, "fetched") + count(data.ecb, "fetched");
+    const totalNew = count(data.summary, "new") + count(data.ecb, "new");
     setResult(
       totalNew > 0
         ? `Synced ${total} rows · ${totalNew} new`
-        : `Synced ${total} rows · no new violations`
+        : `Synced ${total} rows · nothing new`
     );
     router.refresh();
   }
@@ -42,7 +42,7 @@ export default function RefreshViolationsButton() {
         disabled={busy}
         className="rounded-md border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100 disabled:opacity-60"
       >
-        {busy ? "Syncing…" : "↻ Refresh from HPD"}
+        {busy ? "Syncing…" : "↻ Refresh from NYC Open Data"}
       </button>
       {result && <span className="text-xs text-ink-400">{result}</span>}
     </div>
