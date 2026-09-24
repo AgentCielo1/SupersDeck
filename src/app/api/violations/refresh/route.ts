@@ -64,7 +64,27 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getServerSupabase();
-  const buildings = await db.buildings();
+  // db.buildings() reads through the session-aware client — right for the
+  // Refresh button, but the CRON has no session, so RLS answers it an EMPTY
+  // building list and the whole sync silently no-ops (found 2026-09-24: every
+  // scheduled run since the user-scoped-client migration synced 0 buildings
+  // and reported complete). Sessionless-but-authorized callers read through
+  // the service client instead; a signed-in caller with zero visible
+  // buildings genuinely has none to sync.
+  let buildings = await db.buildings();
+  if (buildings.length === 0 && supabase) {
+    const { data: allBuildings, error: bErr } = await supabase
+      .from("buildings")
+      .select("*")
+      .order("name");
+    if (bErr) {
+      return NextResponse.json(
+        { error: `Could not load buildings: ${bErr.message}` },
+        { status: 500 }
+      );
+    }
+    buildings = (allBuildings ?? []) as Building[];
+  }
   const data = await lookupHpdViolationsForBuildings(buildings, {
     openOnly: false, // persist everything; UI filters
     limit: 500,
