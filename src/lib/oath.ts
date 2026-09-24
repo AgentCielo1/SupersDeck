@@ -70,11 +70,11 @@ export function parseBbl(
 }
 
 const BOROUGH_NAMES: Record<number, string[]> = {
-  1: ["MANHATTAN", "NEW YORK", "1"],
-  2: ["BRONX", "2"],
-  3: ["BROOKLYN", "KINGS", "3"],
-  4: ["QUEENS", "4"],
-  5: ["STATEN ISLAND", "RICHMOND", "5"],
+  1: ["MANHATTAN", "NEW YORK", "MN", "1"],
+  2: ["BRONX", "BX", "2"],
+  3: ["BROOKLYN", "KINGS", "BK", "3"],
+  4: ["QUEENS", "QN", "QNS", "4"],
+  5: ["STATEN ISLAND", "RICHMOND", "SI", "5"],
 };
 
 /** Padding variants the dataset has used for block/lot over the years. */

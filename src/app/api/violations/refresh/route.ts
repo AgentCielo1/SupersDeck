@@ -103,7 +103,22 @@ export async function POST(request: NextRequest) {
     const entry = { status: "ok" as const, fetched: rows.length, new: 0 };
     summary[b.id] = entry;
 
-    if (!supabase || rows.length === 0) continue;
+    if (!supabase) continue;
+    if (rows.length === 0) {
+      // BUG (2026-09-24): zero rows used to skip the sync stamp too, so the
+      // UI couldn't tell "checked, clean" from "never checked". A successful
+      // lookup advances last_synced whatever it found.
+      await supabase.from("violations_sync").upsert(
+        {
+          building_id: b.id,
+          last_synced_at: new Date().toISOString(),
+          rows_fetched: 0,
+          rows_new: 0,
+        },
+        { onConflict: "building_id" }
+      );
+      continue;
+    }
 
     // Find which ids are already in our table — anything not in there is
     // "new" (a violation we hadn't seen before).
@@ -265,7 +280,23 @@ async function syncEcb(
     };
     summary[bbl] = entry;
 
-    if (!supabase || rows.length === 0) continue;
+    if (!supabase) continue;
+    if (rows.length === 0) {
+      // Same stamp-on-zero rule as HPD: a completed lookup that found
+      // nothing is a real answer ("checked, clean"), and without the stamp
+      // the /violations ECB section shows "Not synced yet" forever — which
+      // is exactly the symptom that surfaced this bug.
+      await supabase.from("ecb_sync").upsert(
+        {
+          bbl,
+          last_synced_at: new Date().toISOString(),
+          rows_fetched: 0,
+          rows_new: 0,
+        },
+        { onConflict: "bbl" }
+      );
+      continue;
+    }
 
     const ids = rows.map((r) => String(r.ticket_number));
     const { data: existing } = await supabase
