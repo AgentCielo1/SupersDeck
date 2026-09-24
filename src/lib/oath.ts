@@ -146,15 +146,29 @@ export function parseMoney(v: string | undefined): number | null {
 }
 
 /**
- * Open = still owed or still in front of the tribunal. Conservative on
- * purpose: an unrecognized status counts as open — a summons wrongly shown
- * open costs a click; one wrongly shown closed costs a default judgment.
+ * Open = still owed or still in front of the tribunal.
+ *
+ * Calibrated 2026-09-24 against the campus's real docket (118 summonses):
+ *   1. Defaulted → open until vacated, whatever the money fields say.
+ *   2. The dataset publishes balance_due for live cases — when present it is
+ *      authoritative: owed → open, $0.00 → closed (a "HEARING COMPLETED"
+ *      row with a $0 balance is a resolved case, not an open one).
+ *   3. No balance on record: closed-sounding statuses close it; otherwise a
+ *      hearing more than a year in the past with no money on record is
+ *      resolved history (the first pass showed 2000–2015 "NEW ISSUANCE" /
+ *      "HEARING COMPLETED" rows as open forever). Anything recent or
+ *      unheard stays open — err toward showing a live summons.
  */
-export function isOpenSummons(s: OathSummons): boolean {
+export function isOpenSummons(s: OathSummons, now = Date.now()): boolean {
+  if (isDefaulted(s)) return true;
   const balance = parseMoney(s.balance_due);
-  if (balance != null && balance > 0) return true;
+  if (balance != null) return balance > 0;
   const status = `${s.hearing_status ?? ""} ${s.hearing_result ?? ""} ${s.compliance_status ?? ""}`;
   if (CLOSED_RE.test(status)) return false;
+  if (s.hearing_date) {
+    const t = new Date(s.hearing_date).getTime();
+    if (Number.isFinite(t) && now - t > 365 * 86400000) return false;
+  }
   return true;
 }
 
