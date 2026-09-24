@@ -9,6 +9,11 @@ import {
   normalizeAgency,
   parseMoney,
 } from "@/lib/oath";
+import {
+  checkBuildingIdentity,
+  identityMismatches,
+  type IdentityFinding,
+} from "@/lib/building-identity";
 import { getServerSupabase } from "@/lib/supabase";
 import type { Building } from "@/types";
 
@@ -161,19 +166,41 @@ export async function POST(request: NextRequest) {
     (s) => s.status === "failed"
   ).length;
 
+  // ---------------------------------------------------------------------------
+  //  Identity cross-check — stored BIN/BBL vs what the city's rows carry.
+  //  A mismatch is a data bug that silently poisons every lot-keyed lookup,
+  //  so it fails the sync status (207) the same way a fetch failure does.
+  // ---------------------------------------------------------------------------
+  const identityWarnings: Array<IdentityFinding & { building_id: string }> = [];
+  for (const b of buildings) {
+    const result = data[b.id];
+    if (!result?.ok || result.violations.length === 0) continue;
+    for (const m of identityMismatches(checkBuildingIdentity(b, result.violations))) {
+      identityWarnings.push({ ...m, building_id: b.id });
+      console.error(
+        `[violations] IDENTITY MISMATCH for ${b.id}: stored ${m.field} "${m.stored}" but ${m.observations} city rows carry "${m.observed}"`
+      );
+    }
+  }
+
   return NextResponse.json(
     {
       refreshed_at: new Date().toISOString(),
       buildings: buildings.length,
       checked: buildings.length - failedCount,
       failed: failedCount,
-      complete: failedCount === 0 && ecbFailed === 0,
+      complete:
+        failedCount === 0 && ecbFailed === 0 && identityWarnings.length === 0,
       summary,
       ecb: ecbSummary,
+      identity_warnings: identityWarnings,
     },
-    // 207 Multi-Status when any lookup couldn't be completed, so cron
-    // monitoring surfaces a partial sync instead of reading a silent 200.
-    { status: failedCount + ecbFailed > 0 ? 207 : 200 }
+    // 207 Multi-Status when any lookup couldn't be completed OR a stored
+    // identifier contradicts city records, so cron monitoring surfaces it.
+    {
+      status:
+        failedCount + ecbFailed + identityWarnings.length > 0 ? 207 : 200,
+    }
   );
 }
 

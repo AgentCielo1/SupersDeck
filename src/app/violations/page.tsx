@@ -9,6 +9,10 @@ import {
   violationsOrEmpty,
   type HpdLookupResult,
 } from "@/lib/hpd";
+import {
+  checkBuildingIdentity,
+  identityMismatches,
+} from "@/lib/building-identity";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +88,13 @@ export default async function ViolationsPage() {
       {buildings.map((b) => {
         const result = perBuilding[b.id];
         const vs = violationsOrEmpty(result);
+        // Cross-check our stored BIN/BBL against the identifiers the city's
+        // rows carry for this address — a silent wrong identifier would poison
+        // every lot-keyed lookup (OATH/ECB) without this.
+        const idMismatches =
+          result?.ok && vs.length > 0
+            ? identityMismatches(checkBuildingIdentity(b, vs))
+            : [];
         return (
           <section key={b.id} className="mt-8 rounded-xl2 border border-ink-200 bg-white">
             <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
@@ -100,6 +111,24 @@ export default async function ViolationsPage() {
                 Open in HPD Online ↗
               </a>
             </div>
+            {idMismatches.length > 0 && (
+              <div className="m-4 mb-0 rounded-md border border-danger-600/40 bg-danger-50 p-3 text-sm text-danger-800">
+                <p className="font-semibold">
+                  Stored {idMismatches.map((m) => m.field.toUpperCase()).join(" + ")}{" "}
+                  disagrees with city records for this address.
+                </p>
+                <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed">
+                  {idMismatches.map((m) => (
+                    <li key={m.field}>
+                      Stored {m.field.toUpperCase()} <code>{m.stored}</code>, but{" "}
+                      {m.observations} HPD row{m.observations === 1 ? "" : "s"} for
+                      this address carry <code>{m.observed}</code>. Fix it under
+                      Buildings → Edit — lot-keyed lookups (OATH/ECB) depend on it.
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {result && !result.ok ? (
               // STATE 1: we could NOT check. Never render this as "clean".
               <div className="m-4 rounded-md border border-warn-600/40 bg-warn-50 p-4 text-sm text-warn-800">

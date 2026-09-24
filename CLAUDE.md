@@ -18,6 +18,20 @@ If the task you were given is unrelated to SupersDeck:
 - Keep unrelated deliverables (research, documents, artifacts) out of this
   repo's history entirely.
 
+## Reference-data provenance rule
+
+Any real-world identifier hardcoded into this repo (BIN, BBL, HPD ID,
+addresses used as lookup keys, dataset IDs) must be verifiable, not just
+researched once:
+
+- Buildings' BIN/BBL are gated by `scripts/verify-building-identifiers.mjs`
+  (runs in CI; queries HPD + DOB and fails on contradiction) and
+  cross-checked at runtime on every sync (`src/lib/building-identity.ts`,
+  surfaced on `/violations`).
+- When adding a new identifier of any kind, either extend that verifier to
+  cover it or cite two independent sources in the commit message. A value
+  only one source ever confirmed and nothing re-checks is a latent bug.
+
 ## Commands
 
 - `npm run dev` — start the dev server

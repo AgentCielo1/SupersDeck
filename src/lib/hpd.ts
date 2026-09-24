@@ -22,6 +22,14 @@ export interface HpdViolation {
   streetname?: string;
   apartment?: string;
   story?: string;
+  // The city's own identifiers for the address — every row carries them, and
+  // lib/building-identity.ts uses them to cross-check our stored BIN/BBL on
+  // every sync (a stored identifier nothing re-checks is a latent bug).
+  bin?: string;
+  bbl?: string;
+  boroid?: string;
+  block?: string;
+  lot?: string;
   // NYC Open Data publishes the class as `class` (a reserved-ish field name).
   // We accept both forms because some downstream callers use violationclass.
   class?: "A" | "B" | "C" | "I";
