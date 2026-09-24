@@ -23,13 +23,26 @@ export default function RefreshViolationsButton() {
         (s: number, v: any) => s + (v?.[key] ?? 0),
         0
       );
-    // HPD per-building counts + OATH/ECB per-lot counts, one honest line.
+    // HPD per-building counts + OATH/ECB per-lot counts, one honest line —
+    // and a failed or skipped ECB pull is NAMED, never hidden behind a happy
+    // HPD total (that hiding cost a debugging round on 2026-09-24).
     const total = count(data.summary, "fetched") + count(data.ecb, "fetched");
     const totalNew = count(data.summary, "new") + count(data.ecb, "new");
-    setResult(
+    const ecbEntries = Object.values(
+      (data.ecb ?? {}) as Record<string, any>
+    ) as any[];
+    const ecbFail = ecbEntries.find((e) => e?.status === "failed");
+    const ecbSkip = ecbEntries.find((e) => e?.status === "skipped");
+    const base =
       totalNew > 0
         ? `Synced ${total} rows · ${totalNew} new`
-        : `Synced ${total} rows · nothing new`
+        : `Synced ${total} rows · nothing new`;
+    setResult(
+      ecbFail
+        ? `${base} — ECB FAILED: ${ecbFail.reason}${ecbFail.detail ? ` (${ecbFail.detail})` : ""}`
+        : ecbSkip
+        ? `${base} — ECB skipped: ${ecbSkip.reason}`
+        : base
     );
     router.refresh();
   }

@@ -18,7 +18,9 @@
 
 const DATASET = "https://data.cityofnewyork.us/resource/jz4z-kudi.json";
 
-const EXPECTED_FIELDS = [
+// Fields the QUERY itself depends on ($where/$order/attribution/row id) —
+// one of these missing breaks the integration, so it fails the script.
+const CRITICAL_FIELDS = [
   "ticket_number",
   "issuing_agency",
   "violation_date",
@@ -26,6 +28,13 @@ const EXPECTED_FIELDS = [
   "violation_location_block_no",
   "violation_location_lot_no",
   "violation_location_house",
+];
+
+// Fields the app merely reads if present (every one is optional in
+// src/lib/oath.ts, and the open/closed heuristic degrades conservatively) —
+// absence is reported, not fatal. The dataset's schema has shed columns
+// before (respondent fields removed 2026-05).
+const OPTIONAL_FIELDS = [
   "violation_location_street_name",
   "hearing_status",
   "hearing_result",
@@ -53,19 +62,36 @@ async function getJson(url) {
 
 let failed = false;
 
-// --- 1. Field-name check against one arbitrary row -------------------------
-console.log("1) Checking dataset fields against src/lib/oath.ts expectations…");
-const sample = await getJson(`${DATASET}?$limit=1`);
-const have = new Set(Object.keys(sample[0] ?? {}));
-for (const f of EXPECTED_FIELDS) {
-  if (have.has(f)) {
+// --- 1. Field existence, probed definitively per field ----------------------
+//  Sampling one row is WRONG here (learned 2026-09-24): Socrata omits keys
+//  whose value is empty on that row, so real columns looked "missing" while
+//  a $where on the same column returned 118 rows. A $select probe answers
+//  for the schema itself: 200 = column exists, 400 = it does not.
+console.log("1) Probing dataset columns against src/lib/oath.ts expectations…");
+async function columnExists(field) {
+  const res = await fetch(
+    `${DATASET}?$select=${encodeURIComponent(field)}&$limit=1`,
+    { headers: { Accept: "application/json" } },
+  );
+  if (res.ok) return true;
+  if (res.status === 400) return false;
+  throw new Error(`HTTP ${res.status}`);
+}
+for (const f of CRITICAL_FIELDS) {
+  if (await columnExists(f)) {
     console.log(`   ✓ ${f}`);
   } else {
-    console.error(`   ✗ MISSING: ${f} — update src/lib/oath.ts`);
+    console.error(`   ✗ MISSING (query-critical): ${f} — update src/lib/oath.ts`);
     failed = true;
   }
 }
-console.log(`   (dataset publishes ${have.size} fields total)`);
+for (const f of OPTIONAL_FIELDS) {
+  if (await columnExists(f)) {
+    console.log(`   ✓ ${f}`);
+  } else {
+    console.warn(`   ⚠ absent from schema: ${f} — app degrades gracefully, but review src/lib/oath.ts`);
+  }
+}
 
 // --- 2. The exact campus query the refresh endpoint runs --------------------
 console.log("\n2) Running the campus-BBL query (Queens block 2159 lot 2)…");
