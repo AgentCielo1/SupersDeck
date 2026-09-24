@@ -15,6 +15,7 @@ import {
   type IdentityFinding,
 } from "@/lib/building-identity";
 import { getServerSupabase } from "@/lib/supabase";
+import { requireRole, WRITE_ASM } from "@/lib/authz";
 import type { Building } from "@/types";
 
 // =============================================================================
@@ -40,17 +41,25 @@ import type { Building } from "@/types";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // can take a moment when many buildings × violations
 
-function authorized(request: NextRequest): boolean {
+// Two legitimate callers, each with its own credential — fail CLOSED for
+// everyone else (building-fanout endpoint = cost/DoS amplifier):
+//   • the Vercel cron, via Authorization: Bearer <CRON_SECRET>
+//   • a signed-in staff member (admin/super/manager) tapping the Refresh
+//     button. BUG (found 2026-09-24): this caller was documented above but
+//     never admitted — the route demanded the cron secret from everyone, so
+//     the button silently 401'd forever. Invisible while the page's HPD data
+//     came from live lookups; fatal once the ECB section depended on it.
+async function authorizedCaller(request: NextRequest): Promise<boolean> {
   const expected = process.env.CRON_SECRET;
-  // Fail CLOSED — a missing/rotated secret must DENY, never open this
-  // building-fanout endpoint to the public (cost/DoS amplifier otherwise).
-  if (!expected) return false;
-  const got = request.headers.get("authorization");
-  return got === `Bearer ${expected}`;
+  if (expected && request.headers.get("authorization") === `Bearer ${expected}`) {
+    return true;
+  }
+  const auth = await requireRole(WRITE_ASM);
+  return !auth.response;
 }
 
 export async function POST(request: NextRequest) {
-  if (!authorized(request)) {
+  if (!(await authorizedCaller(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
