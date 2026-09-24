@@ -17,9 +17,12 @@ import type {
 //  generated at runtime from the templates (see lib/compliance.ts).
 // =============================================================================
 
-// Real building addresses provided by the super. BIN/BBL/HPD ID and the
-// Community District are intentionally blank — fill them in from
-// hpdonline.hpdnyc.org once you confirm them for each property.
+// Real building addresses provided by the super. BIN/BBL researched
+// 2026-09-24: the three buildings are the Forest Hills co-op campus on ONE
+// shared tax lot (BBL 4021590002 · Queens block 2159 lot 2 — verified via
+// openigloo + NYCHA Real Talk + Forest Hills MHA building info). BINs are
+// per building, from openigloo's per-address pages. HPD ID and the
+// Community District confirmation still pending from hpdonline.hpdnyc.org.
 export const SAMPLE_BUILDINGS: Building[] = [
   {
     id: "bldg-1",
@@ -29,8 +32,8 @@ export const SAMPLE_BUILDINGS: Building[] = [
     year_built: 1975,
     num_units: 144,
     num_floors: 12,
-    bin: "",
-    bbl: "",
+    bin: "4432109",
+    bbl: "4021590002",
     hpd_id: "",
     community_district: "QN-06",
     has_section8: true,
@@ -51,8 +54,8 @@ export const SAMPLE_BUILDINGS: Building[] = [
     year_built: 1975,
     num_units: 144,
     num_floors: 12,
-    bin: "",
-    bbl: "",
+    bin: "4432113",
+    bbl: "4021590002",
     hpd_id: "",
     community_district: "QN-06",
     has_section8: true,
@@ -71,8 +74,8 @@ export const SAMPLE_BUILDINGS: Building[] = [
     year_built: 1975,
     num_units: 144,
     num_floors: 12,
-    bin: "",
-    bbl: "",
+    bin: "4432110",
+    bbl: "4021590002",
     hpd_id: "",
     community_district: "QN-06",
     has_section8: true,
