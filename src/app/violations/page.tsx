@@ -57,7 +57,23 @@ export default async function ViolationsPage() {
       <PageHeader
         title="Violations"
         subtitle="HPD housing-maintenance violations plus OATH/ECB summonses (DEP · DOB · FDNY · DSNY · DOHMH), live from NYC Open Data. Auto-syncs daily at 07:15 ET; refresh manually to pull right now."
-        actions={<RefreshViolationsButton />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="/violations/print"
+              className="rounded-md border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
+            >
+              🖨 Print report
+            </a>
+            <a
+              href="/api/violations/export"
+              className="rounded-md border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-100"
+            >
+              ⬇ Export CSV
+            </a>
+            <RefreshViolationsButton />
+          </div>
+        }
       />
 
       <h2 className="mt-2 text-sm font-semibold uppercase tracking-wide text-ink-400">

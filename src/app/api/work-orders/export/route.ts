@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { csvBody, csvRow as row } from "@/lib/csv";
 
 // =============================================================================
 //  GET /api/work-orders/export.csv  — CSV dump of all work orders
@@ -39,33 +40,8 @@ const COLUMNS = [
   "signed_at",
 ];
 
-/**
- * Leading characters Excel/Google Sheets/LibreOffice treat as the start of a
- * formula. A work-order title of `=HYPERLINK("http://evil","click")` would
- * otherwise execute in the exporter's spreadsheet — CSV formula injection.
- */
-const DANGEROUS_LEADING_CHARS = /^[=+\-@\t\r]/;
-
-function csvEscape(v: unknown): string {
-  if (v === null || v === undefined) return "";
-  let s = typeof v === "string" ? v : String(v);
-  // OWASP CSV-injection mitigation: neutralize a formula-triggering leading
-  // character with a single-quote prefix BEFORE RFC 4180 quoting, so the cell
-  // is read as text rather than evaluated.
-  if (DANGEROUS_LEADING_CHARS.test(s)) {
-    s = `'${s}`;
-  }
-  // RFC 4180: wrap in quotes if contains comma, quote, CR, or LF. Inside,
-  // escape quotes by doubling them.
-  if (/[",\r\n]/.test(s)) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
-function row(values: unknown[]): string {
-  return values.map(csvEscape).join(",");
-}
+/* csvEscape/row now live in src/lib/csv.ts (shared with the violations
+   export) — the formula-injection + RFC 4180 behavior is unchanged. */
 
 export async function GET() {
   const supabase = createSupabaseServerClient();
@@ -130,7 +106,7 @@ export async function GET() {
     );
   }
 
-  const body = lines.join("\r\n") + "\r\n";
+  const body = csvBody(lines);
   const filename = `supersdeck-work-orders-${new Date().toISOString().slice(0, 10)}.csv`;
 
   return new NextResponse(body, {

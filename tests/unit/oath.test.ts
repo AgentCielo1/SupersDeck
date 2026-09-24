@@ -72,25 +72,61 @@ describe("attribution on the shared lot", () => {
   });
 });
 
-describe("status heuristics", () => {
+describe("status heuristics (calibrated 2026-09-24 against the real docket)", () => {
   it("open when money is still owed, whatever the status says", () => {
     expect(
       isOpenSummons({ balance_due: "350.00", hearing_status: "PAID IN FULL" }),
     ).toBe(true);
   });
 
-  it("closed on dismissed / paid-in-full / written-off", () => {
+  it("a published $0 balance closes it — 'HEARING COMPLETED · $0.00' is resolved", () => {
+    expect(
+      isOpenSummons({ balance_due: "0.00", hearing_status: "HEARING COMPLETED" }),
+    ).toBe(false);
     expect(isOpenSummons({ balance_due: "0", hearing_result: "DISMISSED" })).toBe(false);
-    expect(isOpenSummons({ balance_due: "0.00", hearing_status: "PAID IN FULL" })).toBe(false);
-    expect(isOpenSummons({ compliance_status: "WRITTEN OFF" })).toBe(false);
   });
 
-  it("an unrecognized status counts as OPEN — conservative by design", () => {
+  it("closed on closed-sounding statuses when no balance is on record", () => {
+    expect(isOpenSummons({ compliance_status: "WRITTEN OFF" })).toBe(false);
+    expect(isOpenSummons({ hearing_status: "PAID IN FULL" })).toBe(false);
+  });
+
+  it("no balance + hearing over a year ago = resolved history, not open", () => {
+    const now = Date.parse("2026-09-24T12:00:00Z");
+    expect(
+      isOpenSummons(
+        { hearing_status: "NEW ISSUANCE", hearing_date: "2000-12-20T00:00:00.000" },
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      isOpenSummons(
+        { hearing_status: "HEARING COMPLETED", hearing_date: "2015-03-23T00:00:00.000" },
+        now,
+      ),
+    ).toBe(false);
+    // …but a recent or upcoming hearing with no balance stays open.
+    expect(
+      isOpenSummons(
+        { hearing_status: "DOCKETED", hearing_date: "2026-08-01T00:00:00.000" },
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it("an unrecognized status with no clock and no money counts as OPEN", () => {
     expect(isOpenSummons({ hearing_status: "SOME NEW STATUS" })).toBe(true);
     expect(isOpenSummons({})).toBe(true);
   });
 
-  it("flags defaults from either hearing field", () => {
+  it("DEFAULTED is open until vacated, even with a stale hearing or $0 balance", () => {
+    const now = Date.parse("2026-09-24T12:00:00Z");
+    expect(
+      isOpenSummons(
+        { hearing_status: "DEFAULTED", hearing_date: "2022-02-24T00:00:00.000", balance_due: "0" },
+        now,
+      ),
+    ).toBe(true);
     expect(isDefaulted({ hearing_status: "DEFAULTED" })).toBe(true);
     expect(isDefaulted({ hearing_result: "DEFAULT" })).toBe(true);
     expect(isDefaulted({ hearing_status: "HEARD" })).toBe(false);
