@@ -292,6 +292,68 @@ async function fetchTasks(): Promise<Task[]> {
   return (data ?? []) as Task[];
 }
 
+// OATH/ECB summonses persisted by /api/violations/refresh. Honest result: an
+// error (e.g. table not migrated yet) is `ok: false` — callers must not paint
+// that as "no summonses", same discipline as the HPD lookups.
+export type EcbRow = {
+  id: string;
+  building_id: string | null;
+  bbl: string | null;
+  issuing_agency: string | null;
+  issuing_agency_raw: string | null;
+  charge: string | null;
+  charge_code: string | null;
+  violation_date: string | null;
+  hearing_date: string | null;
+  hearing_status: string | null;
+  hearing_result: string | null;
+  compliance_status: string | null;
+  penalty_imposed: number | null;
+  paid_amount: number | null;
+  balance_due: number | null;
+  is_open: boolean;
+  is_defaulted: boolean;
+  house: string | null;
+  street: string | null;
+};
+
+export type EcbSyncRow = {
+  bbl: string;
+  last_synced_at: string;
+  rows_fetched: number;
+  rows_new: number;
+};
+
+async function fetchEcbViolations(): Promise<
+  { ok: true; rows: EcbRow[] } | { ok: false; detail: string }
+> {
+  const s = getSupabase();
+  if (!s) return { ok: true, rows: [] }; // demo mode — nothing synced, honestly empty
+  const { data, error } = await s
+    .from("ecb_violations")
+    .select(
+      "id, building_id, bbl, issuing_agency, issuing_agency_raw, charge, charge_code, violation_date, hearing_date, hearing_status, hearing_result, compliance_status, penalty_imposed, paid_amount, balance_due, is_open, is_defaulted, house, street",
+    )
+    .order("violation_date", { ascending: false })
+    .limit(2000);
+  if (error) {
+    console.error("[db] fetchEcbViolations:", error.message);
+    return { ok: false, detail: error.message };
+  }
+  return { ok: true, rows: (data ?? []) as EcbRow[] };
+}
+
+async function fetchEcbSync(): Promise<EcbSyncRow[]> {
+  const s = getSupabase();
+  if (!s) return [];
+  const { data, error } = await s.from("ecb_sync").select("*");
+  if (error) {
+    console.error("[db] fetchEcbSync:", error.message);
+    return []; // table may not exist yet (pre-migration) — non-fatal
+  }
+  return (data ?? []) as EcbSyncRow[];
+}
+
 async function fetchDocuments(): Promise<Document[]> {
   const s = getSupabase();
   if (!s) return [];
@@ -334,6 +396,8 @@ export const db = {
   documents: fetchDocuments,
   workOrders: fetchWorkOrders,
   workOrder: fetchWorkOrder,
+  ecbViolations: fetchEcbViolations,
+  ecbSync: fetchEcbSync,
   myVendors: fetchMyVendors,
   certifications: fetchCertifications,
   heatLogs: fetchHeatLogs,
