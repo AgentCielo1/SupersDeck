@@ -138,10 +138,19 @@ export default function CompleteWorkOrderPage() {
     ]);
 
     if (up.status === "rejected" || up.value.error) {
+      // Show the REAL storage error — "check your connection" hid an RLS
+      // denial for weeks (2026-09-28), same lesson as the tenant-save bug.
+      const detail =
+        up.status === "rejected"
+          ? (up.reason instanceof Error ? up.reason.message : "network error")
+          : up.value.error.message;
+      const rls = /row-level security|violates|policy/i.test(detail);
       setPaper({
         previewUrl: dataUrl,
         busy: false,
-        error: "Couldn't upload the photo — check your connection and retake it.",
+        error: rls
+          ? `Upload blocked by the storage security policy (${detail}). Run supabase/migration-storage-buckets.sql against the project, then retake.`
+          : `Couldn't upload the photo (${detail}) — check your connection and retake it.`,
       });
       return;
     }
