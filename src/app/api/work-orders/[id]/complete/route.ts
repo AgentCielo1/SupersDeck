@@ -136,6 +136,26 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (!data) {
+    // Same disguise as the units bug: an RLS-denied UPDATE matches 0 rows,
+    // indistinguishable from a missing row unless we look again. A work
+    // order we can still read but couldn't update means a database policy
+    // blocked the write (2026-09-29: the work_orders UPDATE policy was
+    // missing in production and this said "Work order not found").
+    const { data: visible } = await supabase
+      .from("work_orders")
+      .select("id")
+      .eq("id", params.id)
+      .maybeSingle();
+    if (visible) {
+      return NextResponse.json(
+        {
+          error:
+            "The database's security policy blocked this update. " +
+            "Run supabase/fix-write-policies.sql against the project, then retry.",
+        },
+        { status: 403 },
+      );
+    }
     return NextResponse.json({ error: "Work order not found" }, { status: 404 });
   }
 
