@@ -18,6 +18,15 @@ If the task you were given is unrelated to SupersDeck:
 - Keep unrelated deliverables (research, documents, artifacts) out of this
   repo's history entirely.
 
+## Email rule — confirm before sending
+
+Never send an email on the user's behalf without confirming with them first.
+This covers every outbound message through the Gmail connector or any other
+channel — replies, forwards, and new messages alike, to anyone (including
+management). Show the drafted recipient(s), subject, and body and wait for
+the user's explicit go-ahead in that conversation before sending. Creating a
+draft is fine without asking; sending is not.
+
 ## Reference-data provenance rule
 
 Any real-world identifier hardcoded into this repo (BIN, BBL, HPD ID,
