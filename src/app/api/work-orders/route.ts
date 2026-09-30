@@ -25,6 +25,8 @@ const CreateWorkOrderSchema = z.object({
   priority: optStr(50),
   reporter_phone: optStr(100),
   reporter_email: optStr(300),
+  /** HPD violationid this WO remediates (the violations→WO loop). */
+  source_violation_id: optStr(100),
   photos: z.array(z.string()).optional(),
 });
 
@@ -221,6 +223,11 @@ export async function POST(request: Request) {
     reporter_name: String(body.reporter_name).trim(),
     reporter_phone: body.reporter_phone ? String(body.reporter_phone).trim() : null,
     reporter_email: body.reporter_email ? String(body.reporter_email).trim() : null,
+    // Only sent when present so inserts keep working before the
+    // migration-wo-source-violation.sql column exists in production.
+    ...(body.source_violation_id
+      ? { source_violation_id: String(body.source_violation_id).trim() }
+      : {}),
     reported_at: new Date().toISOString(),
     hpd_risk: HPD_RISK_CATEGORIES.has(category),
     photos: Array.isArray(body.photos)

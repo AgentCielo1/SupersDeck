@@ -45,9 +45,26 @@ function NewWorkOrderForm() {
   const prefillReporter = params.get("reporter_name") ?? "";
   const prefillPhone = params.get("reporter_phone") ?? "";
 
+  // Prefill from a violation ("+ Create WO" on /violations) — carries the
+  // ticket's CONTENT, not just who/where. See src/lib/violation-wo.ts. When
+  // present it wins over any saved draft: the tap means "open THIS ticket".
+  const prefillTitle = params.get("title") ?? "";
+  const prefillDescription = params.get("description") ?? "";
+  const prefillCategory = params.get("category") ?? "";
+  const rawPrefillPriority = params.get("priority") ?? "";
+  const prefillPriority = ["emergency", "high", "normal", "low"].includes(
+    rawPrefillPriority,
+  )
+    ? rawPrefillPriority
+    : "normal";
+  const prefillSourceViolation = params.get("source_violation_id") ?? "";
+  const hasContentPrefill = Boolean(
+    prefillTitle || prefillDescription || prefillSourceViolation,
+  );
+
   // Speak-or-type: dictate into Title or Description via the mic (Web Speech).
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [title, setTitle] = useState(prefillTitle);
+  const [description, setDescription] = useState(prefillDescription);
 
   // Controlled so the draft autosave (below) can capture and restore them.
   const [buildingId, setBuildingId] = useState(
@@ -55,8 +72,8 @@ function NewWorkOrderForm() {
   );
   const [unitLabel, setUnitLabel] = useState(prefillUnit);
   // "" = nothing tapped yet; the API coerces a blank category to "other".
-  const [category, setCategory] = useState("");
-  const [priority, setPriority] = useState("normal");
+  const [category, setCategory] = useState(prefillCategory);
+  const [priority, setPriority] = useState(prefillPriority);
 
   // Tapping a category seeds the Title ("No heat — Apt 7C"), but never
   // clobbers hand-typed text: it only replaces an empty title or the exact
@@ -85,6 +102,9 @@ function NewWorkOrderForm() {
   useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
+    // A violation prefill IS the intended content — never let a stale draft
+    // overwrite it. (The autosave below then adopts it as the new draft.)
+    if (hasContentPrefill) return;
     try {
       const draft = loadWoDraft(window.localStorage);
       if (!draft) return;
@@ -110,7 +130,7 @@ function NewWorkOrderForm() {
     } catch {
       // Storage unavailable (private mode, blocked site data) — start fresh.
     }
-  }, [prefillBuildingId, prefillUnit, prefillReporter, prefillPhone]);
+  }, [prefillBuildingId, prefillUnit, prefillReporter, prefillPhone, hasContentPrefill]);
 
   useEffect(() => {
     if (!hydratedRef.current) return;
@@ -241,6 +261,20 @@ function NewWorkOrderForm() {
         }}
         className="space-y-4 rounded-xl2 border border-ink-200 bg-white p-5"
       >
+        {prefillSourceViolation && (
+          <div className="rounded-md border border-ink-200 bg-brand-50/40 px-3 py-2 text-xs text-ink-600">
+            Prefilled from HPD violation #{prefillSourceViolation} — saving
+            links this ticket to that violation.
+          </div>
+        )}
+        {/* FormData picks this up so the POST carries the violation link. */}
+        {prefillSourceViolation && (
+          <input
+            type="hidden"
+            name="source_violation_id"
+            value={prefillSourceViolation}
+          />
+        )}
         {draftRestored && (
           <div className="flex items-center justify-between gap-3 rounded-md border border-ink-200 bg-brand-50/40 px-3 py-2 text-xs text-ink-600">
             <span>Restored your unsaved draft from last time.</span>
