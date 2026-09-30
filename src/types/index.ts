@@ -235,6 +235,11 @@ export interface WorkOrder {
   title_en?: string;
   description_en?: string;
   source_language?: string;
+  // HPD violationid this WO remediates (the violations→WO loop). Set when
+  // the WO was created via "+ Create WO" on /violations; the violations page
+  // reads it back to show the ticket chip. Column added by
+  // supabase/migration-wo-source-violation.sql.
+  source_violation_id?: string | null;
 }
 
 export interface WorkOrderUpdate {

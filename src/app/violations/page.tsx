@@ -13,6 +13,7 @@ import {
   checkBuildingIdentity,
   identityMismatches,
 } from "@/lib/building-identity";
+import { workOrderUrlFromViolation } from "@/lib/violation-wo";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +33,29 @@ export default async function ViolationsPage() {
     await lookupHpdViolationsForBuildings(buildings, { openOnly: true });
   // OATH/ECB summonses come from the synced table (the refresh cron/button
   // fills it) — same honesty: a load error is shown, never painted as clean.
-  const [ecbResult, ecbSync] = await Promise.all([
+  const [ecbResult, ecbSync, workOrders] = await Promise.all([
     db.ecbViolations(),
     db.ecbSync(),
+    db.workOrders(),
   ]);
+
+  // The violations→WO loop: which violations already have a ticket. First WO
+  // per violation wins (there should only ever be one — "+ Create WO" hides
+  // once a ticket exists). Pre-migration rows simply lack the field → empty.
+  const woByViolation = new Map<
+    string,
+    { id: string; ticket_number: string; status: string }
+  >();
+  for (const w of workOrders) {
+    const sv = w.source_violation_id;
+    if (sv && !woByViolation.has(sv)) {
+      woByViolation.set(sv, {
+        id: w.id,
+        ticket_number: w.ticket_number,
+        status: w.status,
+      });
+    }
+  }
 
   const failed = buildings.filter((b) => perBuilding[b.id]?.ok === false);
   const checked = buildings.length - failed.length;
@@ -179,11 +199,13 @@ export default async function ViolationsPage() {
                       <th className="px-3 py-2 text-left">Apt</th>
                       <th className="px-3 py-2 text-left">Status</th>
                       <th className="px-3 py-2 text-left">Description</th>
+                      <th className="px-3 py-2 text-left">Ticket</th>
                     </tr>
                   </thead>
                   <tbody>
                     {vs.map((v) => {
                       const due = cureDeadline(v);
+                      const wo = woByViolation.get(v.violationid);
                       return (
                         <tr key={v.violationid} className="border-t border-ink-100 align-top">
                           <td className="px-3 py-2">
@@ -215,6 +237,28 @@ export default async function ViolationsPage() {
                           <td className="px-3 py-2 text-xs">{v.currentstatus ?? "—"}</td>
                           <td className="px-3 py-2 text-xs leading-relaxed">
                             {v.novdescription ?? ""}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2 text-xs">
+                            {wo ? (
+                              <a
+                                href={`/work-orders/${wo.id}`}
+                                className={`inline-block rounded-md border px-1.5 py-0.5 font-mono font-medium hover:underline ${
+                                  wo.status === "completed"
+                                    ? "border-ink-200 bg-ink-100 text-ink-600"
+                                    : "border-brand-600/40 bg-brand-50 text-brand-800"
+                                }`}
+                                title={`Work order ${wo.ticket_number} · ${wo.status}`}
+                              >
+                                {wo.ticket_number}
+                              </a>
+                            ) : (
+                              <a
+                                href={workOrderUrlFromViolation(b, v)}
+                                className="font-medium text-brand-600 hover:underline"
+                              >
+                                + Create WO
+                              </a>
+                            )}
                           </td>
                         </tr>
                       );
