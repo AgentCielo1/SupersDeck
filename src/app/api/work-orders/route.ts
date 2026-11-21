@@ -10,6 +10,12 @@ import { getClientIp, isRateLimitedDurable } from "@/lib/ratelimit-durable";
 import { parseJson, reqStr, optStr } from "@/lib/validation";
 import { pushWorkOrderToFHI } from "@/lib/fhi-sync";
 import { intakeTokensEnabled, verifyIntakeToken } from "@/lib/intake-token";
+import {
+  directoryPhoneUpdate,
+  type DirectoryPhoneUpdate,
+  type ReporterPhoneSource,
+} from "@/lib/wo-prefill";
+import { requireRole, TENANT_PII } from "@/lib/authz";
 
 // building_id + reporter_name required. category/priority are further validated
 // against their allow-lists by the handler below; photos are filtered to strings
@@ -24,6 +30,13 @@ const CreateWorkOrderSchema = z.object({
   description: optStr(5000),
   priority: optStr(50),
   reporter_phone: optStr(100),
+  /** "directory" when the phone is the number the tenant-directory link prefilled
+   *  and nobody changed it; "typed" otherwise (BUG-351). Absent from the tenant
+   *  intake form. A label only: believed from signed-in staff, never a permission. */
+  reporter_phone_source: optStr(20),
+  /** "1" when signed-in staff ticked "save this number to the Tenant Directory"
+   *  (BUG-351). Ignored for anonymous callers and non-admin/super roles. */
+  update_directory: optStr(5),
   reporter_email: optStr(300),
   /** HPD violationid this WO remediates (the violations→WO loop). */
   source_violation_id: optStr(100),
@@ -170,10 +183,21 @@ export async function POST(request: Request) {
     ? String(body.category)
     : "other";
 
-  // If the tenant didn't provide a unit_id but did provide a unit_label, try
-  // to resolve it. Best-effort: skip if no match (we don't want to reject the
-  // ticket just because of a typo).
-  let unit_id: string | null = body.unit_id ? String(body.unit_id) : null;
+  // A unit_id is only taken from signed-in staff, and only if it belongs to the
+  // building being posted to — an anonymous caller (or a typo) must not be able
+  // to attach a ticket to a unit in another building. Otherwise resolve the
+  // unit_label within the building. Best-effort: skip if no match (we don't
+  // want to reject the ticket just because of a typo).
+  let unit_id: string | null = null;
+  if (user && body.unit_id) {
+    const { data: owned } = await supabase
+      .from("units")
+      .select("id")
+      .eq("id", String(body.unit_id))
+      .eq("building_id", String(body.building_id))
+      .maybeSingle();
+    if (owned) unit_id = owned.id;
+  }
   if (!unit_id && body.unit_label) {
     const { data: u } = await supabase
       .from("units")
@@ -246,32 +270,95 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Keep the Tenant Directory current: a work order carries the tenant's phone,
-  // so refresh the unit's tenant_phone from it (latest WO wins), and fill in the
-  // tenant name only when the unit has none (never overwrite the lease-roll name).
-  if (unit_id && row.reporter_phone) {
-    const digits = row.reporter_phone.replace(/\D/g, "");
-    if (digits.length >= 10 && !/555\d{4}$/.test(digits)) {
-      const patch: Record<string, string> = { tenant_phone: row.reporter_phone };
-      const { data: u } = await supabase
-        .from("units")
-        .select("tenant_name")
-        .eq("id", unit_id)
-        .maybeSingle();
-      if (u && !(u.tenant_name && u.tenant_name.trim()) && row.reporter_name) {
-        patch.tenant_name = row.reporter_name;
+  // Keep the Tenant Directory current — but only with a number that was typed
+  // BUG-351: a work order no longer updates the Tenant Directory on its own.
+  // The old "latest WO wins" copy let a stale directory number look confirmed
+  // and let a relative's or neighbour's number replace the tenant's. Only a
+  // signed-in admin/super who ticks "save this number to the Tenant Directory"
+  // changes units.tenant_phone — for an occupied unit, never the name. See
+  // directoryPhoneUpdate in lib/wo-prefill. The "came from the directory" flag
+  // is only believed from signed-in staff (it is a label, never a permission).
+  const phoneSource: ReporterPhoneSource | null = !row.reporter_phone
+    ? null
+    : user && body.reporter_phone_source === "directory"
+      ? "directory"
+      : "typed";
+  // Reported back to the form so a refused save is never silent.
+  let directory:
+    | { requested: true; updated: boolean; reason: DirectoryPhoneUpdate["reason"] | "error" }
+    | undefined;
+  if (body.update_directory === "1") {
+    directory = { requested: true, updated: false, reason: "not-allowed" };
+    if (user && sessionClient) {
+      const staff = await requireRole(TENANT_PII);
+      // The caller's own session, so the directory's org fence and role
+      // policies apply exactly as on the Tenants page (PATCH /api/units/:id).
+      // (The role is decided once, in directoryPhoneUpdate below.)
+      const { data: u } = unit_id
+        ? await sessionClient
+            .from("units")
+            .select("id, occupied, tenant_phone, tenant_phone2, emergency_contact_phone, notes")
+            .eq("id", unit_id)
+            .maybeSingle()
+        : { data: null };
+      const { data: others } = u
+        ? await sessionClient.from("units").select("tenant_phone, tenant_phone2").neq("id", u.id)
+        : { data: [] as Array<{ tenant_phone: string | null; tenant_phone2: string | null }> };
+      const decision = directoryPhoneUpdate({
+        requested: true,
+        staffMayEditDirectory: Boolean(staff.profile),
+        unitFound: Boolean(u),
+        unitOccupied: u?.occupied,
+        currentPhone: u?.tenant_phone,
+        secondPhone: u?.tenant_phone2,
+        emergencyContactPhone: u?.emergency_contact_phone,
+        otherUnitPhones: (others ?? []).flatMap((o) => [o.tenant_phone, o.tenant_phone2]),
+        newPhone: row.reporter_phone,
+      });
+      directory.reason = decision.reason;
+      if (decision.update && u) {
+        // Never lose the number it replaces: move it to the empty second slot,
+        // or else record it in the unit's directory notes (staff-only).
+        const patch: Record<string, string | null> = { tenant_phone: row.reporter_phone };
+        if (decision.moveOldToSecond) {
+          patch.tenant_phone2 = u.tenant_phone;
+        } else if (u.tenant_phone) {
+          const line = `${new Date().toISOString().slice(0, 10)}: phone ${u.tenant_phone} replaced by ${row.reporter_phone} (work order ${row.ticket_number}).`;
+          patch.notes = u.notes ? `${u.notes}\n${line}` : line;
+        }
+        const { error: dirErr } = await sessionClient.from("units").update(patch).eq("id", u.id);
+        directory.updated = !dirErr;
+        if (dirErr) directory.reason = "error";
       }
-      await supabase.from("units").update(patch).eq("id", unit_id).then(undefined, () => {});
     }
   }
+  const directoryUpdated = Boolean(directory?.updated);
 
-  // Seed the timeline with a creation event.
+  // Seed the timeline with a creation event. Say so when the phone was only
+  // carried over from the tenant directory, so nobody later reads it as a
+  // number the reporter gave. (No names or numbers here: /track shows this
+  // timeline to whoever holds the ticket number.)
+  const createdAt = Date.now();
   await supabase.from("work_order_updates").insert({
-    id: `wou-${row.id}-${Date.now()}-created`,
+    id: `wou-${row.id}-${createdAt}-created`,
     work_order_id: row.id,
-    message: `Reported: ${row.title}`,
+    message:
+      phoneSource === "directory"
+        ? `Reported: ${row.title} (phone carried over from the tenant directory)`
+        : `Reported: ${row.title}`,
     author: row.reporter_name,
   });
+  if (directoryUpdated) {
+    await supabase
+      .from("work_order_updates")
+      .insert({
+        id: `wou-${row.id}-${createdAt}-directory`,
+        work_order_id: row.id,
+        message: "Tenant Directory phone updated from this work order.",
+        author: "System",
+      })
+      .then(undefined, () => {});
+  }
 
   // Notify admins + supers via email AND push. Fire and forget — failures
   // never fail the WO.
@@ -306,7 +393,7 @@ export async function POST(request: Request) {
   revalidatePath("/work-orders");
   revalidatePath("/", "layout");
 
-  return NextResponse.json(data, { status: 201 });
+  return NextResponse.json(directory ? { ...data, directory } : data, { status: 201 });
 }
 
 // =============================================================================

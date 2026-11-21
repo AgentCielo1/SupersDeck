@@ -77,6 +77,55 @@
       "find": "      const req = indexedDB.deleteDatabase(DB_NAME);",
       "replace": "      const req = { } as IDBOpenDBRequest; queueMicrotask(() => (req as unknown as { onsuccess?: () => void }).onsuccess?.());",
       "expect": "deletes the offline database by name"
+    },
+    {
+      "name": "BUG-351: a work order without the explicit tick must never change the Tenant Directory",
+      "file": "src/app/api/work-orders/route.ts",
+      "find": "  if (body.update_directory === \"1\") {",
+      "replace": "  if (true) {",
+      "expect": "without the tick, a work order never changes the directory"
+    },
+    {
+      "name": "BUG-351: only admin/super may save a work-order phone to the Tenant Directory",
+      "file": "src/app/api/work-orders/route.ts",
+      "find": "        staffMayEditDirectory: Boolean(staff.profile),",
+      "replace": "        staffMayEditDirectory: true,",
+      "expect": "a manager's tick is refused"
+    },
+    {
+      "name": "BUG-351: a unit_id from another building must not be attached to the work order",
+      "file": "src/app/api/work-orders/route.ts",
+      "find": "      .eq(\"building_id\", String(body.building_id))\n      .maybeSingle();\n    if (owned) unit_id = owned.id;",
+      "replace": "      .maybeSingle();\n    if (owned) unit_id = owned.id;",
+      "expect": "never attaches a work order to a unit_id from another building"
+    },
+    {
+      "name": "BUG-351: an anonymous caller's unit_id must be ignored",
+      "file": "src/app/api/work-orders/route.ts",
+      "find": "  if (user && body.unit_id) {",
+      "replace": "  if (body.unit_id) {",
+      "expect": "ignores a unit_id sent by an anonymous caller"
+    },
+    {
+      "name": "BUG-351: the directory rule must refuse a vacant unit",
+      "file": "src/lib/wo-prefill.ts",
+      "find": "  if (input.unitOccupied !== true) return { update: false, reason: \"vacant-unit\" };",
+      "replace": "",
+      "expect": "never writes to a vacant or unknown unit"
+    },
+    {
+      "name": "BUG-351: the directory rule must refuse a number on file for another apartment",
+      "file": "src/lib/wo-prefill.ts",
+      "find": "    if (d === phoneDigits(other)) return { update: false, reason: \"on-file-for-another-unit\" };",
+      "replace": "",
+      "expect": "refuses a number that is on file for another apartment"
+    },
+    {
+      "name": "BUG-351: a draft must not lend one apartment's reporter phone to another apartment's link",
+      "file": "src/lib/wo-draft.ts",
+      "find": "  const sameUnit =\n",
+      "replace": "  const sameUnit = true ||\n",
+      "expect": "does not lend the draft's reporter details to a link for a different apartment"
     }
   ]
 }

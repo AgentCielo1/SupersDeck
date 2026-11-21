@@ -12,7 +12,13 @@
 //    description — prefilled reporter fields alone (from the tenant
 //    directory's "+ New WO" link) never create a draft.
 //  • On restore, prefill query params win for the fields they carry
-//    (building/unit/reporter); the draft fills everything else.
+//    (building/unit/reporter); the draft fills everything else — except that
+//    a draft saved for a DIFFERENT apartment never lends its reporter name or
+//    phone to the link's apartment (that put one unit's tenant phone on a
+//    neighbour's work order; BUG-351).
+//  • The draft remembers which phone the directory link prefilled
+//    (reporter_phone_prefill), so after a restore the form still knows the
+//    phone is only the number on file.
 //  • Drafts expire after 48h so a stale half-ticket doesn't resurface weeks
 //    later. Photos and voice memos cannot be persisted (browsers don't allow
 //    stashing picked files) — text is the thing protected here.
@@ -32,6 +38,8 @@ export type WoDraftFields = {
   priority: string;
   reporter_name: string;
   reporter_phone: string;
+  /** The phone the tenant-directory link prefilled, if any (BUG-351). */
+  reporter_phone_prefill?: string;
 };
 
 export type WoDraft = WoDraftFields & { savedAt: number };
@@ -87,6 +95,7 @@ export function loadWoDraft(
     priority: str(d.priority),
     reporter_name: str(d.reporter_name),
     reporter_phone: str(d.reporter_phone),
+    reporter_phone_prefill: str(d.reporter_phone_prefill),
     savedAt: d.savedAt,
   };
   if (!draftWorthKeeping(draft)) {
@@ -116,11 +125,20 @@ export function mergeDraftWithPrefill(
   const draftBuilding = validBuildingIds.includes(draft.building_id)
     ? draft.building_id
     : "";
+  // A link that names an apartment only borrows reporter details from a draft
+  // saved for that same apartment (and building, when both are known).
+  const norm = (v: string) => v.replace(/\s+/g, "").toUpperCase();
+  const sameUnit =
+    !prefill.unit_label ||
+    (norm(prefill.unit_label) === norm(draft.unit_label) &&
+      (!prefill.building_id || !draftBuilding || prefill.building_id === draftBuilding));
   return {
     building_id: prefill.building_id || draftBuilding,
     unit_label: prefill.unit_label || draft.unit_label,
-    reporter_name: prefill.reporter_name || draft.reporter_name,
-    reporter_phone: prefill.reporter_phone || draft.reporter_phone,
+    reporter_name: prefill.reporter_name || (sameUnit ? draft.reporter_name : ""),
+    reporter_phone: prefill.reporter_phone || (sameUnit ? draft.reporter_phone : ""),
+    reporter_phone_prefill:
+      prefill.reporter_phone || (sameUnit ? (draft.reporter_phone_prefill ?? "") : ""),
     title: draft.title,
     description: draft.description,
     category: draft.category,
