@@ -120,3 +120,44 @@ describe("mergeDraftWithPrefill", () => {
     expect(merged.building_id).toBe("");
   });
 });
+
+// BUG-351: a draft must not lend one apartment's reporter phone to another
+// apartment's link, and must remember which phone the directory prefilled.
+describe("mergeDraftWithPrefill — reporter details stay with their apartment", () => {
+  const valid = ["bldg-1", "bldg-2"];
+  const draft = { ...fields, savedAt: 1000 }; // bldg-2 / 7C
+  const silent = { building_id: undefined, unit_label: "", reporter_name: "", reporter_phone: "" };
+
+  it("does not lend the draft's reporter details to a link for a different apartment", () => {
+    const merged = mergeDraftWithPrefill(draft, { ...silent, building_id: "bldg-2", unit_label: "7D" }, valid);
+    expect(merged.unit_label).toBe("7D");
+    expect(merged.reporter_name).toBe("");
+    expect(merged.reporter_phone).toBe("");
+    expect(merged.title).toBe(fields.title); // typed text is still restored
+  });
+
+  it("does not lend them across buildings that share the apartment label", () => {
+    const merged = mergeDraftWithPrefill(draft, { ...silent, building_id: "bldg-1", unit_label: "7C" }, valid);
+    expect(merged.reporter_phone).toBe("");
+  });
+
+  it("keeps them for the same apartment, whatever the spacing or case", () => {
+    const merged = mergeDraftWithPrefill(draft, { ...silent, building_id: "bldg-2", unit_label: "7 c" }, valid);
+    expect(merged.reporter_name).toBe(fields.reporter_name);
+    expect(merged.reporter_phone).toBe(fields.reporter_phone);
+  });
+
+  it("remembers the directory-prefilled phone through save, load and restore", () => {
+    const s = memStorage();
+    saveWoDraft(s, { ...fields, reporter_phone_prefill: fields.reporter_phone }, 1000);
+    const back = loadWoDraft(s, 2000)!;
+    expect(back.reporter_phone_prefill).toBe(fields.reporter_phone);
+    expect(mergeDraftWithPrefill(back, silent, valid).reporter_phone_prefill).toBe(fields.reporter_phone);
+  });
+
+  it("reads a draft saved before this change as having no prefilled phone", () => {
+    const s = memStorage();
+    s.setItem(WO_DRAFT_KEY, JSON.stringify({ ...fields, savedAt: 1000 }));
+    expect(loadWoDraft(s, 2000)!.reporter_phone_prefill).toBe("");
+  });
+});

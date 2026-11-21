@@ -3,7 +3,11 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
-import { resolvePrefillBuilding } from "@/lib/wo-prefill";
+import {
+  directoryOutcomeMessage,
+  reporterPhoneSource,
+  resolvePrefillBuilding,
+} from "@/lib/wo-prefill";
 import {
   clearWoDraft,
   loadWoDraft,
@@ -90,6 +94,16 @@ function NewWorkOrderForm() {
   }
   const [reporterName, setReporterName] = useState(prefillReporter);
   const [reporterPhone, setReporterPhone] = useState(prefillPhone);
+  // BUG-351: a phone the directory link prefilled is the number ON FILE, not a
+  // number the reporter gave. Show that, and tell the API so it is not written
+  // back into the directory as if it had been confirmed.
+  // The number the directory link prefilled. Kept in the draft too, so a
+  // restored draft still knows its phone is only the number on file.
+  const [phonePrefill, setPhonePrefill] = useState(prefillPhone);
+  const phoneSource = reporterPhoneSource(phonePrefill, reporterPhone);
+  // Explicit, staff-only "save this number to the Tenant Directory" (the API
+  // checks the role and that the unit is occupied). Off by default.
+  const [updateDirectory, setUpdateDirectory] = useState(false);
 
   // Draft autosave: typed text survives the phone OS killing the backgrounded
   // tab, refreshes, and mid-form navigation. Restore happens once on mount
@@ -126,6 +140,7 @@ function NewWorkOrderForm() {
       if (merged.priority) setPriority(merged.priority);
       setReporterName(merged.reporter_name);
       setReporterPhone(merged.reporter_phone);
+      setPhonePrefill(merged.reporter_phone_prefill ?? "");
       setDraftRestored(true);
     } catch {
       // Storage unavailable (private mode, blocked site data) — start fresh.
@@ -144,11 +159,12 @@ function NewWorkOrderForm() {
         priority,
         reporter_name: reporterName,
         reporter_phone: reporterPhone,
+        reporter_phone_prefill: phonePrefill,
       });
     } catch {
       // Best-effort — never let a storage failure break typing.
     }
-  }, [buildingId, unitLabel, title, description, category, priority, reporterName, reporterPhone]);
+  }, [buildingId, unitLabel, title, description, category, priority, reporterName, reporterPhone, phonePrefill]);
 
   function discardDraft() {
     try {
@@ -163,6 +179,8 @@ function NewWorkOrderForm() {
     lastAutoTitleRef.current = "";
     setReporterName(prefillReporter);
     setReporterPhone(prefillPhone);
+    setPhonePrefill(prefillPhone);
+    setUpdateDirectory(false);
     setDraftRestored(false);
   }
   const [voiceField, setVoiceField] = useState<null | "title" | "description">(null);
@@ -252,6 +270,12 @@ function NewWorkOrderForm() {
             try {
               clearWoDraft(window.localStorage);
             } catch {}
+            // A ticked "save to the Tenant Directory" that the server refused is
+            // never silent (BUG-351): say why before leaving the form.
+            if (data.directory?.requested && !data.directory.updated) {
+              const msg = directoryOutcomeMessage(data.directory.reason);
+              if (msg) window.alert(`Work order saved. ${msg}`);
+            }
             router.push(`/work-orders/${data.id}`);
             router.refresh();
           } catch (err) {
@@ -274,6 +298,11 @@ function NewWorkOrderForm() {
             name="source_violation_id"
             value={prefillSourceViolation}
           />
+        )}
+        {/* FormData picks this up so the API knows whether the phone was typed
+            or only carried over from the tenant directory (BUG-351). */}
+        {phoneSource && (
+          <input type="hidden" name="reporter_phone_source" value={phoneSource} />
         )}
         {draftRestored && (
           <div className="flex items-center justify-between gap-3 rounded-md border border-ink-200 bg-brand-50/40 px-3 py-2 text-xs text-ink-600">
@@ -455,8 +484,37 @@ function NewWorkOrderForm() {
             value={reporterPhone}
             onChange={(e) => setReporterPhone(e.target.value)}
             className={fieldClass}
+            aria-describedby={phoneSource === "directory" ? "reporter-phone-source" : undefined}
           />
         </Field>
+        {phoneSource === "directory" && (
+          <p
+            id="reporter-phone-source"
+            data-testid="reporter-phone-from-directory"
+            className="-mt-2 text-xs text-warn-800"
+          >
+            This is the number on file in the Tenant Directory. Confirm it with the
+            tenant, and change it if it&apos;s wrong or the tenant has changed.
+          </p>
+        )}
+        {phoneSource === "typed" && unitLabel.trim() && (
+          <label className="-mt-2 flex items-start gap-2 text-xs text-ink-600">
+            <input
+              type="checkbox"
+              name="update_directory"
+              value="1"
+              checked={updateDirectory}
+              onChange={(e) => setUpdateDirectory(e.target.checked)}
+              data-testid="update-directory"
+              className="mt-0.5"
+            />
+            <span>
+              Save this number as the tenant&apos;s phone in the Tenant Directory
+              (only if it is the tenant&apos;s own number, not a relative&apos;s or
+              neighbour&apos;s).
+            </span>
+          </label>
+        )}
 
         {error && (
           <div className="rounded-md border border-danger-600/40 bg-danger-50 px-3 py-2 text-sm text-danger-800">
