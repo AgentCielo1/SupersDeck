@@ -171,19 +171,34 @@ insert into buildings (
   community_district, has_section8, is_pact_rad, has_sprinkler,
   has_oil_heat, has_known_lead, heat_notes, square_footage
 ) values
-('bldg-1','Building 1','62-27 108th Street, Queens, NY 11375','Queens',1975,144,12,'QN-06',true,true,true,
+('bldg-1','Building 1','62-27 108th Street, Queens, NY 11375','Queens',1975,142,12,'QN-06',true,true,true,
   true, false,
   'Temporary oil — main gas boiler offline pending underground steam-leak repair. Q-99 cert + PBS tank reg apply while oil is on-site.',
   122242),
-('bldg-2','Building 2','108-53 62nd Drive, Queens, NY 11375','Queens',1975,144,12,'QN-06',true,true,true,
+('bldg-2','Building 2','108-53 62nd Drive, Queens, NY 11375','Queens',1975,145,12,'QN-06',true,true,true,
   false, false, null, 122242),
-('bldg-3','Building 3','110-01 62nd Drive, Queens, NY 11375','Queens',1975,144,12,'QN-06',true,true,true,
+('bldg-3','Building 3','110-01 62nd Drive, Queens, NY 11375','Queens',1975,145,12,'QN-06',true,true,true,
   false, false, null, 122242)
 on conflict (id) do nothing;
 
 
 -- ============================================================================
--- UNITS — generate 432 (12 floors × 12 lines × 3 buildings).
+-- UNITS — 432 total, but NOT an even 12×12×3 grid. See BUG-180.
+--
+-- The naive grid gives 144 per building and the right total by coincidence,
+-- with the wrong composition. Two real deviations, from the rent roll
+-- (HPD Projects/Lease dates.pdf) and confirmed by the owner 2026-06-22:
+--
+--   • Building 1 has NO 1E and NO 1F — that level is basement/office and the
+--     rent roll jumps 1D → 1G. B1 is 142 apartments, not 144.
+--   • Two non-apartment units are real and rentable: the LAUNDRY (CSC Laundry),
+--     billed under account 130/Building 1 but PHYSICALLY in Building 2, and the
+--     COMMERCIAL unit 134-290 in Building 3. So B2 = 145 and B3 = 145.
+--
+-- 142 + 145 + 145 = 432. Do not "simplify" this back to a clean grid, and never
+-- derive unit counts by counting unit FOLDERS — that is what produced the
+-- retired 439 figure the facts registry forbids.
+--
 -- Lines A–H, J, K, L, M (NYC convention skips the letter I).
 -- ============================================================================
 -- Real bedroom layout per line, as confirmed by the super:
@@ -224,6 +239,16 @@ begin
     end loop;
   end loop;
 end $$;
+
+-- Building 1 has no 1E/1F — that level is basement and office space.
+delete from units where id in ('u-1-1e','u-1-1f');
+
+-- The two real non-apartment units (see the header note above).
+insert into units (id, building_id, label, line, floor, bedrooms, bathrooms, occupied) values
+  ('u-2-laun','bldg-2','LAUN','LAUN',1,0,0,true),
+  ('u-3-comm','bldg-3','COMM','COMM',1,0,0,false)
+on conflict (building_id, label) do nothing;
+update units set tenant_name='CSC Laundry' where id='u-2-laun';
 
 -- Overlay a few demo tenants so the dashboard / work orders have realistic
 -- names on first run. Edit / remove these once you've imported real tenant
